@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MimiTapSetup</AssemblyName>
+    <RootNamespace>MimiTapSetup</RootNamespace>
+    <ApplicationIcon>..\..\Assets\MimiTap.ico</ApplicationIcon>
+    <ApplicationManifest>..\..\app.manifest</ApplicationManifest>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>MimiTap Setup</Product>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\Assets\MimiTap.ico" Link="Assets\MimiTap.ico" />
+    <EmbeddedResource Include="..\..\publish\MimiTap.exe" LogicalName="Payload.MimiTap.exe" />
+  </ItemGroup>
+
+</Project>

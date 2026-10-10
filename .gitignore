@@ -1,0 +1,27 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Publish / distribution outputs (собираются из исходников)
+/publish/
+/dist/
+/installer/publish/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userprefs
+
+# Test / coverage
+[Tt]est[Rr]esult*/
+*.coverage
+*.coveragexml
+
+# OS
+Thumbs.db
+desktop.ini

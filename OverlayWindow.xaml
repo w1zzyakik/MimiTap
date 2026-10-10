@@ -1,0 +1,23 @@
+<Window x:Class="MimiTap.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MimiTap"
+        Icon="pack://application:,,,/Assets/MimiTap.ico"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        Focusable="False"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Width="220"
+        Height="220">
+    <Image x:Name="ImageHost"
+           Stretch="Uniform"
+           RenderOptions.BitmapScalingMode="HighQuality"
+           HorizontalAlignment="Stretch"
+           VerticalAlignment="Stretch" />
+</Window>
