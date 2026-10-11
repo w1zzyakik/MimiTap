@@ -6,17 +6,24 @@
 <title>MimiTap — оверлей-картинка поверх всех окон</title>
 <meta name="description" content="MimiTap: прозрачная картинка поверх всех окон. Держите ЛКМ — показывается 2.png, отпустили — снова 1.png. Со звуком нажатия.">
 <link rel="icon" href="favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=Russo+One&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0E1014;
-    --card: #171A21;
-    --card-hover: #1C2028;
-    --line: #272B35;
-    --field: #12151B;
-    --accent: #4C8DFF;
-    --accent-hover: #6BA1FF;
-    --text: #E9EBF2;
-    --muted: #8C93A4;
+    --primary: #7C3AED;
+    --primary-2: #A78BFA;
+    --accent: #F43F5E;
+    --bg: #0F0F23;
+    --bg-2: #161430;
+    --card: #1E1C35;
+    --card-hover: #242143;
+    --fg: #E2E8F0;
+    --muted: #94A3B8;
+    --border: #4C1D95;
+    --ring: #7C3AED;
+    --f-head: "Russo One", "Segoe UI", system-ui, sans-serif;
+    --f-body: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,118 +32,191 @@
 
   body {
     background: var(--bg);
-    color: var(--text);
-    font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--fg);
+    font: 400 16px/1.65 var(--f-body);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { color: var(--accent-hover); text-decoration: underline; }
+  a { color: var(--primary-2); text-decoration: none; }
+  a:hover { color: #C4B5FD; text-decoration: underline; }
+  button, a { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; border-radius: 6px; }
 
-  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+  ::selection { background: rgba(124, 58, 237, .45); }
+
+  .wrap { max-width: 1024px; margin: 0 auto; padding: 0 24px; position: relative; }
+
+  /* glow background */
+  .bgfx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .bgfx::before, .bgfx::after {
+    content: ""; position: absolute; width: 640px; height: 640px; border-radius: 50%;
+    filter: blur(120px); opacity: .25;
+  }
+  .bgfx::before { background: #7C3AED; top: -180px; left: -120px; animation: drift 16s ease-in-out infinite alternate; }
+  .bgfx::after { background: #F43F5E; bottom: -220px; right: -140px; animation: drift 20s ease-in-out infinite alternate-reverse; }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(60px, 40px) scale(1.15); } }
 
   /* ── header ─────────────────────────────── */
   header {
     position: sticky; top: 0; z-index: 10;
-    backdrop-filter: blur(10px);
-    background: rgba(14, 16, 20, .82);
-    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(12px);
+    background: rgba(15, 15, 35, .78);
+    border-bottom: 1px solid var(--border);
   }
-  nav { display: flex; align-items: center; gap: 18px; height: 60px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; color: var(--text); }
-  .brand img { border-radius: 7px; }
-  .nav-links { margin-left: auto; display: flex; gap: 18px; align-items: center; }
-  .nav-links a { color: var(--muted); font-size: 14.5px; }
-  .nav-links a:hover { color: var(--text); text-decoration: none; }
+  nav { display: flex; align-items: center; gap: 18px; height: 62px; }
+  .brand { display: inline-flex; align-items: center; gap: 11px; font-family: var(--f-head); font-size: 18px; color: var(--fg); }
+  .brand img { border-radius: 8px; box-shadow: 0 0 18px rgba(124, 58, 237, .55); }
+  .brand:hover { text-decoration: none; color: var(--fg); }
+  .nav-links { margin-left: auto; display: flex; gap: 20px; align-items: center; }
+  .nav-links a { color: var(--muted); font-size: 14.5px; font-weight: 500; }
+  .nav-links a:hover { color: var(--fg); text-decoration: none; }
+  .btn-gh {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--card); border: 1px solid var(--border); color: var(--fg);
+    border-radius: 10px; padding: 8px 14px; font: 600 13.5px var(--f-body);
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+  .btn-gh:hover { background: var(--card-hover); transform: translateY(-1px); text-decoration: none; color: var(--fg); }
 
   /* ── hero ───────────────────────────────── */
-  .hero { padding: 72px 0 48px; text-align: center; }
-  .hero h1 { font-size: 44px; font-weight: 800; letter-spacing: -.5px; }
-  .hero h1 span { color: var(--accent); }
-  .hero .tagline { max-width: 640px; margin: 14px auto 0; color: var(--muted); font-size: 18px; }
-  .hero .badges { margin-top: 22px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-
-  .chip {
-    display: inline-flex; align-items: center; gap: 7px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
-    padding: 6px 14px; font-size: 13.5px; color: var(--muted);
+  .hero { padding: 74px 0 46px; text-align: center; }
+  .hero h1 {
+    font: 800 46px/1.15 var(--f-head); letter-spacing: .5px;
+    text-shadow: 0 0 28px rgba(124, 58, 237, .45);
   }
-  .chip b { color: var(--text); font-weight: 600; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #3DDC84; }
+  .grad {
+    background: linear-gradient(92deg, #A78BFA 0%, #7C3AED 45%, #F43F5E 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero .tagline { max-width: 660px; margin: 16px auto 0; color: var(--muted); font-size: 18px; font-weight: 300; }
+  .hero .tagline b { color: var(--fg); font-weight: 600; }
+  .badges { margin-top: 24px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(30, 28, 53, .8); border: 1px solid var(--border); border-radius: 999px;
+    padding: 7px 15px; font-size: 13.5px; color: var(--muted);
+  }
+  .chip b { color: var(--fg); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #3DDC84; box-shadow: 0 0 10px #3DDC84; }
+
+  .hero-cta { margin-top: 30px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    border-radius: 12px; padding: 13px 26px;
+    font: 600 15px var(--f-body);
+    transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  }
+  .btn-primary {
+    background: linear-gradient(92deg, #7C3AED, #A855F7);
+    color: #fff;
+    box-shadow: 0 8px 26px rgba(124, 58, 237, .45);
+  }
+  .btn-primary:hover { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 12px 30px rgba(124, 58, 237, .6); text-decoration: none; color: #fff; }
+  .btn-outline { background: var(--card); border: 1px solid var(--border); color: var(--fg); }
+  .btn-outline:hover { background: var(--card-hover); transform: translateY(-2px); text-decoration: none; color: var(--fg); }
 
   /* ── demo ───────────────────────────────── */
   .demo {
-    margin: 40px auto 0; max-width: 520px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 20px;
-    padding: 24px; user-select: none;
+    margin: 34px auto 0; max-width: 500px;
+    background: linear-gradient(180deg, rgba(30,28,53,.9), rgba(15,15,35,.9));
+    border: 1px solid var(--border); border-radius: 22px; padding: 22px; user-select: none;
+    box-shadow: 0 0 0 1px rgba(124,58,237,.12), 0 24px 60px rgba(0,0,0,.45);
   }
   .demo-screen {
-    position: relative; aspect-ratio: 1 / 1; border-radius: 14px; overflow: hidden;
+    position: relative; aspect-ratio: 1 / 1; border-radius: 16px; overflow: hidden;
     background:
-      radial-gradient(circle at 20% 20%, #1a2233, transparent 45%),
-      linear-gradient(180deg, #10141d, #0b0e14);
+      radial-gradient(circle at 25% 20%, rgba(124,58,237,.28), transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(244,63,94,.18), transparent 50%),
+      #0B0B1A;
     cursor: default;
   }
-  .demo-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .15s ease; }
+  .demo-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .16s ease; }
   .demo-screen img.click { opacity: 0; }
   .demo-screen.pressed img.idle { opacity: 0; }
   .demo-screen.pressed img.click { opacity: 1; }
-  .demo-hint { margin-top: 12px; text-align: center; color: var(--muted); font-size: 13.5px; }
-  .demo-hint kbd { background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; font-size: 12px; }
+  .demo-hint { margin-top: 13px; text-align: center; color: var(--muted); font-size: 13.5px; }
+  kbd { background: #12102A; border: 1px solid var(--border); border-radius: 7px; padding: 2px 8px; font: 600 12.5px var(--f-body); color: var(--primary-2); }
 
   /* ── sections ───────────────────────────── */
-  section { padding: 40px 0; }
-  h2 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
-  .sub { color: var(--muted); margin-bottom: 24px; max-width: 640px; }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-  .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    padding: 18px 18px 16px; transition: background .15s ease, transform .15s ease;
+  section { padding: 42px 0; }
+  h2 { font: 700 27px var(--f-head); margin-bottom: 8px; letter-spacing: .3px; }
+  .sub { color: var(--muted); margin-bottom: 26px; max-width: 640px; font-weight: 300; }
+  .sub code, td code, p code {
+    background: #12102A; border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px;
+    font: 500 13px var(--f-body); color: #C4B5FD;
   }
-  .card:hover { background: var(--card-hover); transform: translateY(-2px); }
-  .card h3 { font-size: 15.5px; font-weight: 600; margin-bottom: 6px; display: flex; gap: 9px; align-items: center; }
-  .card p { color: var(--muted); font-size: 14px; }
-  .ico { width: 22px; height: 22px; flex: 0 0 auto; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; 
+  }
+  .card:hover { transform: translateY(-3px); border-color: #6D28D9; box-shadow: 0 14px 34px rgba(0,0,0,.4); }
+  .card .ic {
+    width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center;
+    background: linear-gradient(135deg, rgba(124,58,237,.28), rgba(244,63,94,.18));
+    border: 1px solid var(--border); color: var(--primary-2); margin-bottom: 12px;
+  }
+  .card h3 { font: 600 15.5px var(--f-head); margin-bottom: 7px; letter-spacing: .2px; }
+  .card p { color: var(--muted); font-size: 14px; font-weight: 300; }
+
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
 
   /* ── tables ─────────────────────────────── */
-  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 14.5px; }
-  th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); }
-  th { background: var(--field); color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .4px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; font-size: 14.5px; }
+  th, td { text-align: left; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+  th { background: #161334; color: var(--primary-2); font: 600 12.5px var(--f-head); text-transform: uppercase; letter-spacing: .8px; }
   tr:last-child td { border-bottom: none; }
-  td code { background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font-size: 13px; color: var(--accent-hover); }
+  tr:hover td { background: rgba(124,58,237,.05); }
 
   /* ── code blocks ────────────────────────── */
   pre {
-    background: #0b0e14; border: 1px solid var(--line); border-radius: 12px;
-    padding: 16px 18px; overflow-x: auto; font-size: 13.5px; line-height: 1.55;
-    margin-top: 10px;
+    background: linear-gradient(180deg, #12102A, #0B0B1A); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; overflow-x: auto; font: 500 13.5px/1.6 var(--f-body); margin-top: 12px;
   }
-  pre code { color: #c9d4e8; }
-  .lang { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  pre code { color: #C4B5FD; }
+  .lang { color: var(--muted); font: 600 11px var(--f-head); text-transform: uppercase; letter-spacing: 1px; }
 
-  footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--muted); font-size: 13.5px; }
+  /* CTA band */
+  .cta-band { margin: 16px 0 8px; text-align: center; }
+  .cta-band h2 { font-size: 30px; }
+  .cta-band p { color: var(--muted); margin: 8px auto 22px; max-width: 520px; }
+
+  footer { border-top: 1px solid var(--border); padding: 28px 0 44px; color: var(--muted); font-size: 13.5px; }
   footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
   @media (max-width: 640px) {
     .hero h1 { font-size: 32px; }
     .nav-links span.hide-sm { display: none; }
-    .hero { padding: 48px 0 32px; }
+    .hero { padding: 52px 0 32px; }
+    section { padding: 30px 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; }
   }
 </style>
 </head>
 <body>
 
+<div class="bgfx" aria-hidden="true"></div>
+
 <header>
   <div class="wrap">
     <nav>
-      <a class="brand" href="#top"><img src="favicon.ico" width="28" height="28" alt="">MimiTap</a>
+      <a class="brand" href="#top"><img src="favicon.ico" width="30" height="30" alt="">MimiTap</a>
       <div class="nav-links">
         <a href="#demo">Демо</a>
         <a href="#features">Возможности</a>
         <a href="#hotkeys">Горячие клавиши</a>
         <a href="#install">Установка</a>
-        <span class="hide-sm"><a href="https://github.com/w1zzyakik/MimiTap" target="_blank" rel="noopener">GitHub ↗</a></span>
+        <span class="hide-sm"><a class="btn-gh" href="https://github.com/w1zzyakik/MimiTap" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          GitHub
+        </a></span>
       </div>
     </nav>
   </div>
@@ -146,7 +226,7 @@
 
   <!-- HERO -->
   <div class="hero">
-    <h1>Картинка поверх <span>всех окон</span></h1>
+    <h1>Картинка поверх <span class="grad">всех окон</span></h1>
     <p class="tagline">
       Прозрачный оверлей, который не мешает играть: держите левую кнопку мыши —
       показывается <b>2.png</b>, отпустили — снова <b>1.png</b>. Клики проходят
@@ -158,11 +238,17 @@
       <span class="chip"><b>Windows</b> 10/11</span>
       <span class="chip">Свой установщик</span>
     </div>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#install">Установить
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14m0 0 4-4m-4 4-4-4"/><path d="M4 21h16"/></svg>
+      </a>
+      <a class="btn btn-outline" href="https://github.com/w1zzyakik/MimiTap" target="_blank" rel="noopener">Исходники на GitHub</a>
+    </div>
   </div>
 
   <!-- DEMO -->
   <section id="demo" style="padding-top:0">
-    <div class="demo">
+    <div class="demo reveal">
       <div class="demo-screen" id="demoScreen">
         <img class="idle" src="img/idle.png" alt="1.png — обычное состояние">
         <img class="click" src="img/click.png" alt="2.png — при нажатии">
@@ -176,28 +262,34 @@
     <h2>Возможности</h2>
     <p class="sub">Всё настраивается в окне настроек и применяется мгновенно.</p>
     <div class="grid">
-      <div class="card">
-        <h3>🖱 Три режима клика</h3>
-        <p>«Держать 2.png» пока зажата ЛКМ, «показывать N мс» после отпускания или «переключать» 1.png ⇄ 2.png. Страховка вернёт 1.png, даже если событие отпускания потерялось.</p>
+      <div class="card reveal">
+        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.037 4.688a.5.5 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.436l-1.58 6.124a.5.5 0 0 1-.947.063z"/></svg></div>
+        <h3>Три режима клика</h3>
+        <p>«Держать 2.png» пока зажата ЛКМ, «показывать N мс» после отпускания или «переключать» 1.png ⇄ 2.png. Страховка вернёт 1.png даже при потерянном событии отпускания.</p>
       </div>
-      <div class="card">
-        <h3>🔊 Звук нажатия</h3>
+      <div class="card reveal">
+        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.36 18.36a9 9 0 0 0 0-12.73"/></svg></div>
+        <h3>Звук нажатия</h3>
         <p>wav, mp3, m4a, wma, aac. Громкость и лимит до 1 секунды — длинные файлы автоматически обрезаются. Кнопка «Прослушать» для проверки.</p>
       </div>
-      <div class="card">
-        <h3>⬇ Клики проходят насквозь</h3>
-        <p>Картинка не перехватывает мышь: клики уходят в игру или программу под ней. Глобальный хук отслеживает нажатие в любом месте.</p>
+      <div class="card reveal">
+        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 18 12 22l4-4"/><path d="M12 2v20"/></svg></div>
+        <h3>Клики проходят насквозь</h3>
+        <p>Картинка не перехватывает мышь: клики уходят в игру или программу под ней. Глобальный хук отслеживает нажатие в любом месте экрана.</p>
       </div>
-      <div class="card">
-        <h3>🎯 Область срабатывания</h3>
-        <p>Весь экран, весь квадрат картинки или только непрозрачные пиксели (альфа-маска 256 px). Плюс «запас» вокруг картинки до 200 px.</p>
+      <div class="card reveal">
+        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+        <h3>Область срабатывания</h3>
+        <p>Весь экран, весь квадрат картинки или только непрозрачные пиксели (альфа-маска 256 px) + «запас» вокруг картинки до 200 px.</p>
       </div>
-      <div class="card">
-        <h3>📐 Размер и положение</h3>
+      <div class="card reveal">
+        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></div>
+        <h3>Размер и положение</h3>
         <p>Свои ширина/высота или размер изображения, 5 режимов масштабирования, экран и привязка из 9 вариантов либо свободное положение с перетаскиванием мышью.</p>
       </div>
-      <div class="card">
-        <h3>⚙ Системное</h3>
+      <div class="card reveal">
+        <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></div>
+        <h3>Системное</h3>
         <p>Трей (показать/скрыть, показать 1.png или 2.png), горячая клавиша, автозапуск с Windows, предпросмотр, сброс настроек. Окно настроек закрывается в трей.</p>
       </div>
     </div>
@@ -207,7 +299,7 @@
   <section id="hotkeys">
     <h2>Горячие клавиши</h2>
     <p class="sub">Картинка не забирает фокус, поэтому управление — глобальное.</p>
-    <table>
+    <table class="reveal">
       <tr><th>Клавиши</th><th>Действие</th></tr>
       <tr><td><code>Ctrl+Alt+M</code></td><td>Показать / скрыть картинку (настраивается)</td></tr>
       <tr><td><code>F5</code></td><td>Открыть настройки</td></tr>
@@ -221,15 +313,15 @@
     <h2>Установка и запуск</h2>
     <p class="sub">Готовый установщик ставится без прав администратора. Исходники собираются одной командой.</p>
 
-    <h3 style="margin-bottom:4px">Из репозитория</h3>
+    <h3 style="margin-bottom:2px">Из репозитория</h3>
     <span class="lang">powershell</span>
     <pre><code>dotnet publish .\MimiTap.csproj -c Release -r win-x64 --self-contained false `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\publish
 
 .\publish\MimiTap.exe</code></pre>
 
-    <h3 style="margin:10px 0 4px">Параметры запуска</h3>
-    <table>
+    <h3 style="margin:14px 0 2px">Параметры запуска</h3>
+    <table class="reveal">
       <tr><th>Флаг</th><th>Что делает</th></tr>
       <tr><td><code>--settings</code></td><td>сразу открыть настройки</td></tr>
       <tr><td><code>--minimized</code></td><td>запуск скрытым в трей (используется автозапуском)</td></tr>
@@ -237,13 +329,27 @@
       <tr><td><code>--diag</code></td><td>журнал кликов и hit-test в <code>diag.log</code></td></tr>
     </table>
 
-    <h3 style="margin:10px 0 4px">Замена картинок</h3>
+    <h3 style="margin:14px 0 2px">Замена картинок</h3>
     <p class="sub" style="max-width:none">
       Положите свои файлы в <code>%AppData%\MimiTap\assets</code> как <code>1.png</code> и <code>2.png</code> —
       или выберите любые изображения кнопками «Выбрать...» в настройках.
     </p>
   </section>
 
+</div>
+
+<!-- CTA -->
+<div class="wrap">
+  <div class="cta-band">
+    <h2>Готовы попробовать?</h2>
+    <p>Один exe-файл без лишних зависимостей. Скачайте установщик из релизов или соберите из исходников.</p>
+    <div class="hero-cta" style="margin-top:0">
+      <a class="btn btn-primary" href="https://github.com/w1zzyakik/MimiTap" target="_blank" rel="noopener">Открыть репозиторий
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+      </a>
+      <a class="btn btn-outline" href="#demo">Посмотреть демо</a>
+    </div>
+  </div>
 </div>
 
 <footer>
@@ -254,14 +360,20 @@
 </footer>
 
 <script>
+  // демо «зажать и держать»
   const screen = document.getElementById('demoScreen');
-  const idle = screen.querySelector('img.idle');
-  const click = screen.querySelector('img.click');
-
   let down = false;
   screen.addEventListener('pointerdown', (e) => { down = true; screen.classList.add('pressed'); });
   window.addEventListener('pointerup', () => { down = false; screen.classList.remove('pressed'); });
   screen.addEventListener('pointerleave', () => { if (down) { down = false; screen.classList.remove('pressed'); } });
+
+  // мягкое появление секций (уважает prefers-reduced-motion)
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }
+  }, { threshold: 0.12 });
+  if (!reduce) { document.querySelectorAll('.reveal').forEach((el) => io.observe(el)); }
+  else { document.querySelectorAll('.reveal').forEach((el) => el.classList.add('in')); }
 </script>
 
 </body>

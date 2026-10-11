@@ -134,6 +134,11 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 (встроенные картинки при первом запуске копируются туда). Также можно выбрать любые
 изображения кнопками «Выбрать...» в настройках.
 
+## Сайт
+
+Лендинг проекта на GitHub Pages: <https://w1zzyakik.github.io/MimiTap/>
+Исходники сайта лежат в `docs\` и публикуются в Pages прямо из ветки `main`.
+
 ## Код
 
 | Файл | Назначение |
