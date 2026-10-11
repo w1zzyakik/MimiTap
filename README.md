@@ -1,6 +1,7 @@
 # MimiTap
 
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-7C3AED)](https://w1zzyakik.github.io/MimiTap/)
+[![Telegram](https://img.shields.io/badge/Telegram-%40MimiTapp-26A5E4)](https://t.me/MimiTapp)
 [![Release](https://img.shields.io/github/v/release/w1zzyakik/MimiTap)](https://github.com/w1zzyakik/MimiTap/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-3DA639.svg)](LICENSE)
 
@@ -150,10 +151,13 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 (встроенные картинки при первом запуске копируются туда). Также можно выбрать любые
 изображения кнопками «Выбрать...» в настройках.
 
-## Сайт
+## Сайт и сообщество
 
 Лендинг проекта на GitHub Pages: <https://w1zzyakik.github.io/MimiTap/>
 Исходники сайта лежат в `docs\` и публикуются в Pages прямо из ветки `main`.
+
+Новости — в Telegram-канале [@MimiTapp](https://t.me/MimiTapp),
+обсуждения — в [группе](https://t.me/+KgrrQpk4XW0zM2Uy).
 
 ## Код
 
