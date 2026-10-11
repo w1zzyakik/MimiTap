@@ -22,4 +22,15 @@
     <Resource Include="Assets\MimiTap.ico" />
   </ItemGroup>
 
+  <!-- Установщик — отдельный проект в подпапке installer. Исключаем его файлы
+       из сборки основного приложения, иначе SDK-глоб затягивает их дважды. -->
+  <ItemGroup>
+    <Compile Remove="installer\**" />
+    <Page Remove="installer\**" />
+    <ApplicationDefinition Remove="installer\**" />
+    <None Remove="installer\**" />
+    <Resource Remove="installer\**" />
+    <EmbeddedResource Remove="installer\**" />
+  </ItemGroup>
+
 </Project>
