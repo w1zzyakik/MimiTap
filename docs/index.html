@@ -120,7 +120,7 @@
 
   /* ── demo ───────────────────────────────── */
   .demo {
-    margin: 34px auto 0; max-width: 500px;
+    position: relative; margin: 78px auto 0; max-width: 500px;
     background: linear-gradient(180deg, rgba(18,12,29,.92), rgba(6,3,9,.92));
     border: 1px solid var(--border); border-radius: 22px; padding: 22px; user-select: none;
     box-shadow: 0 0 0 1px rgba(139,92,246,.15), 0 24px 60px rgba(0,0,0,.55);
@@ -138,6 +138,21 @@
   .demo-screen.pressed img.idle { opacity: 0; }
   .demo-screen.pressed img.click { opacity: 1; }
   .demo-hint { margin-top: 13px; text-align: center; color: var(--muted); font-size: 13.5px; }
+
+  /* Мими выглядывает из-за верхней кромки панели — как через забор */
+  .peek {
+    position: absolute; left: 50%; bottom: calc(100% - 2px);
+    width: clamp(148px, 46%, 232px); height: auto;
+    transform-origin: 50% 100%; transform: translateX(-50%);
+    pointer-events: none; user-select: none; z-index: 2;
+    filter: drop-shadow(0 12px 20px rgba(0, 0, 0, .5));
+    animation: peek-breathe 4.6s ease-in-out infinite;
+  }
+  /* низ закреплён (масштаб от нижней кромки) — стык с панелью не расходится */
+  @keyframes peek-breathe {
+    0%, 100% { transform: translateX(-50%) scaleY(1); }
+    50% { transform: translateX(-50%) scaleY(1.035); }
+  }
   kbd { background: #0E0A17; border: 1px solid var(--border); border-radius: 7px; padding: 2px 8px; font: 600 12.5px var(--f-body); color: var(--primary-2); }
 
   /* ── sections ───────────────────────────── */
@@ -255,6 +270,7 @@
   <!-- DEMO -->
   <section id="demo" style="padding-top:0">
     <div class="demo reveal">
+      <img class="peek" src="img/mimi_peek.png" alt="" aria-hidden="true">
       <div class="demo-screen" id="demoScreen">
         <img class="idle" src="img/idle.png" alt="1.png — Мими замахивается на кнопку">
         <img class="click" src="img/click.png" alt="2.png — Мими нажала кнопку">
