@@ -239,7 +239,7 @@
       <span class="chip">Свой установщик</span>
     </div>
     <div class="hero-cta">
-      <a class="btn btn-primary" href="#install">Установить
+      <a class="btn btn-primary" href="https://github.com/w1zzyakik/MimiTap/releases/latest" target="_blank" rel="noopener">Скачать установщик
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14m0 0 4-4m-4 4-4-4"/><path d="M4 21h16"/></svg>
       </a>
       <a class="btn btn-outline" href="https://github.com/w1zzyakik/MimiTap" target="_blank" rel="noopener">Исходники на GitHub</a>
@@ -313,7 +313,18 @@
     <h2>Установка и запуск</h2>
     <p class="sub">Готовый установщик ставится без прав администратора. Исходники собираются одной командой.</p>
 
-    <h3 style="margin-bottom:2px">Из репозитория</h3>
+    <div class="hero-cta" style="justify-content:flex-start; margin:0 0 10px">
+      <a class="btn btn-primary" href="https://github.com/w1zzyakik/MimiTap/releases/latest" target="_blank" rel="noopener">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14m0 0 4-4m-4 4-4-4"/><path d="M4 21h16"/></svg>
+        Скачать MimiTapSetup.exe
+      </a>
+    </div>
+    <p class="sub" style="max-width:none; margin-bottom:26px">
+      Версия <b>v1.0.0</b> · Windows 10/11 · нужен <a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noopener">.NET 10 Desktop Runtime</a>.
+      Установка без прав администратора, в <code>%LocalAppData%\Programs\MimiTap</code>.
+    </p>
+
+    <h3 style="margin-bottom:2px">Сборка из исходников</h3>
     <span class="lang">powershell</span>
     <pre><code>dotnet publish .\MimiTap.csproj -c Release -r win-x64 --self-contained false `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\publish
@@ -343,10 +354,10 @@
 <div class="wrap">
   <div class="cta-band">
     <h2>Готовы попробовать?</h2>
-    <p>Один exe-файл без лишних зависимостей. Скачайте установщик из релизов или соберите из исходников.</p>
+    <p>Установщик без прав администратора — нужен только .NET 10 Desktop Runtime. Или соберите из исходников.</p>
     <div class="hero-cta" style="margin-top:0">
-      <a class="btn btn-primary" href="https://github.com/w1zzyakik/MimiTap" target="_blank" rel="noopener">Открыть репозиторий
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+      <a class="btn btn-primary" href="https://github.com/w1zzyakik/MimiTap/releases/latest" target="_blank" rel="noopener">Скачать установщик
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14m0 0 4-4m-4 4-4-4"/><path d="M4 21h16"/></svg>
       </a>
       <a class="btn btn-outline" href="#demo">Посмотреть демо</a>
     </div>

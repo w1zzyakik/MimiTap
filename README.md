@@ -1,6 +1,7 @@
 # MimiTap
 
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-7C3AED)](https://w1zzyakik.github.io/MimiTap/)
+[![Release](https://img.shields.io/github/v/release/w1zzyakik/MimiTap)](https://github.com/w1zzyakik/MimiTap/releases/latest)
 
 **Твой клик — её нажатие.** Оверлей-персонаж поверх всех окон: в покое Мими
 замахивается (`1.png`), а пока зажата левая кнопка мыши — жмёт кнопку (`2.png`);
@@ -10,6 +11,14 @@
 Проект сделан по персонажу **Мими** — OC художницы **Typh**: антропоморфная собачка
 (страница персонажа: <https://animation-meme.fandom.com/wiki/Typh/Mimi>).
 Все картинки приложения — арты Мими.
+
+## Скачать
+
+Готовый установщик: **[MimiTapSetup.exe — последний релиз](https://github.com/w1zzyakik/MimiTap/releases/latest)**
+(текущая версия — [`v1.0.0`](https://github.com/w1zzyakik/MimiTap/releases/tag/v1.0.0)).
+
+Нужен **.NET 10 Desktop Runtime** (<https://dotnet.microsoft.com/download/dotnet/10.0>).
+Установка без прав администратора, в `%LocalAppData%\Programs\MimiTap`.
 
 ## Что умеет
 
