@@ -2,6 +2,7 @@
 
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-7C3AED)](https://w1zzyakik.github.io/MimiTap/)
 [![Release](https://img.shields.io/github/v/release/w1zzyakik/MimiTap)](https://github.com/w1zzyakik/MimiTap/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-3DA639.svg)](LICENSE)
 
 **Твой клик — её нажатие.** Оверлей-персонаж поверх всех окон: в покое Мими
 замахивается (`1.png`), а пока зажата левая кнопка мыши — жмёт кнопку (`2.png`);
@@ -169,3 +170,14 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 | `installer\MimiTapSetup\Installer.cs` | логика установки/удаления, ярлыки, реестр, самоудаление |
 | `installer\MimiTapSetup\MainWindow.xaml(.cs)` | интерфейс установщика (шаги установки, журнал) |
 | `installer\MimiTapSetup\App.xaml(.cs)` | режимы установщика: тихий, `--delete`, определение удаления |
+
+## Лицензия
+
+Код проекта распространяется под лицензией **MIT** (см. [`LICENSE`](LICENSE)):
+можно свободно использовать, изменять и распространять, в том числе в коммерческих целях.
+
+**Исключение — арты.** Изображения персонажа **Мими** (`Assets\1.png`, `Assets\2.png`,
+`Assets\MimiTap.ico`, а также копии в `docs\img\`) — это арт художницы **Typh**
+(<https://animation-meme.fandom.com/wiki/Typh/Mimi>). Они **не** покрываются лицензией MIT,
+права на персонажа и изображения принадлежат автору. Если хотите использовать их отдельно
+от программы — спросите разрешение у Typh.
