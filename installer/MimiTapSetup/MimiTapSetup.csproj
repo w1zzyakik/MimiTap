@@ -19,6 +19,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- движок локализации и словари берём из основного проекта, чтобы не дублировать строки -->
+    <Compile Include="..\..\Localization\Localization.cs" Link="Localization\Localization.cs" />
+    <EmbeddedResource Include="..\..\Localization\Strings\ru.json" LogicalName="MimiTapSetup.Localization.Strings.ru.json" />
+    <EmbeddedResource Include="..\..\Localization\Strings\en.json" LogicalName="MimiTapSetup.Localization.Strings.en.json" />
+    <EmbeddedResource Include="..\..\Localization\Strings\es.json" LogicalName="MimiTapSetup.Localization.Strings.es.json" />
+    <EmbeddedResource Include="..\..\Localization\Strings\pt-BR.json" LogicalName="MimiTapSetup.Localization.Strings.pt-BR.json" />
+    <EmbeddedResource Include="..\..\Localization\Strings\uk.json" LogicalName="MimiTapSetup.Localization.Strings.uk.json" />
+    <EmbeddedResource Include="..\..\Localization\Strings\pl.json" LogicalName="MimiTapSetup.Localization.Strings.pl.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="..\..\Assets\MimiTap.ico" Link="Assets\MimiTap.ico" />
     <EmbeddedResource Include="..\..\publish\MimiTap.exe" LogicalName="Payload.MimiTap.exe" />
   </ItemGroup>

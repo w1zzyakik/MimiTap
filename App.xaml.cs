@@ -19,7 +19,8 @@ public partial class App : Application
         _mutex = new Mutex(true, "MimiTap.SingleInstance", out bool createdNew);
         if (!createdNew)
         {
-            MessageBox.Show("MimiTap уже запущен. Проверьте значок в трее.", "MimiTap", MessageBoxButton.OK, MessageBoxImage.Information);
+            Loc.SetLanguage(SettingsStore.Load().Language);
+            MessageBox.Show(Loc.T("AppAlreadyRunning"), "MimiTap", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }
@@ -28,8 +29,8 @@ public partial class App : Application
         {
             Log(args.Exception);
             MessageBox.Show(
-                args.Exception.Message + "\n\nПодробности: " + SettingsStore.ErrorLogPath,
-                "MimiTap — ошибка",
+                args.Exception.Message + Loc.T("AppErrorDetails") + SettingsStore.ErrorLogPath,
+                Loc.T("AppErrorTitle"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             args.Handled = true;

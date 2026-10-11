@@ -58,6 +58,7 @@ public sealed class AppController : IDisposable
     private System.Windows.Forms.NotifyIcon? _tray;
     private System.Windows.Forms.ContextMenuStrip? _trayMenu;
     private OverlayWindow? _overlay;
+    private TutorialWindow? _tutorial;
     private bool _hiddenBySettings;
     private bool _dragging;
     private bool _pressArmed;
@@ -86,12 +87,15 @@ public sealed class AppController : IDisposable
             Interval = TimeSpan.FromMilliseconds(16)
         };
         _dragTimer.Tick += (_, _) => ApplyDrag();
-        SettingsWindow = new SettingsWindow(this);
         Settings = SettingsStore.Load();
+        Loc.SetLanguage(Settings.Language);
 
         // реестр — источник истины для автозапуска: установщик мог добавить запись
         // до первого запуска, иначе первое же сохранение настроек её бы удалило
         Settings.AutoStart = AutoStart.IsEnabled();
+
+        // окно настроек создаём после загрузки языка, чтобы подписи сразу были верными
+        SettingsWindow = new SettingsWindow(this);
     }
 
     public string DiagnosticsPath => Path.Combine(SettingsStore.DataDir, "diag.log");
@@ -153,6 +157,14 @@ public sealed class AppController : IDisposable
         {
             SelfTest.Run(this);
         }
+        else if (!Settings.TutorialSeen
+                 && IsOverlayVisible
+                 && !HasArgument("--minimized")
+                 && !HasArgument("--settings"))
+        {
+            // обучение показываем один раз, когда оверлей уже на экране
+            _dispatcher.BeginInvoke(new Action(() => ShowTutorial(false)), DispatcherPriority.ApplicationIdle);
+        }
     }
 
     private static bool HasArgument(string name) =>
@@ -171,6 +183,8 @@ public sealed class AppController : IDisposable
         Settings = next;
         SettingsStore.Save(next);
         AutoStart.Set(next.AutoStart);
+
+        Loc.SetLanguage(next.Language);
 
         _overlay?.ApplySettings(next);
         _mouseHook.Enabled = next.MouseHookEnabled;
@@ -279,6 +293,47 @@ public sealed class AppController : IDisposable
     }
 
     public bool IsOverlayVisible => _overlay?.IsVisible == true;
+
+    /// <summary>Меняет язык интерфейса на лету и обновляет зависящие от текста элементы.</summary>
+    public void ApplyLanguage(string language)
+    {
+        Settings.Language = Loc.Canonical(language);
+        Loc.SetLanguage(Settings.Language);
+        SettingsStore.Save(Settings);
+        UpdateTrayMenu();
+        SettingsWindow.RefreshDynamicText();
+    }
+
+    /// <summary>Показывает обучение при первом запуске или принудительно из настроек.</summary>
+    public void ShowTutorial(bool force)
+    {
+        if (!force && Settings.TutorialSeen)
+        {
+            return;
+        }
+
+        if (_tutorial is { IsVisible: true })
+        {
+            _tutorial.Activate();
+            return;
+        }
+
+        _tutorial = new TutorialWindow(this);
+        if (_overlay is { IsVisible: true })
+        {
+            _tutorial.Owner = _overlay;
+        }
+
+        _tutorial.Closed += (_, _) =>
+        {
+            Settings.TutorialSeen = true;
+            SettingsStore.Save(Settings);
+            _tutorial = null;
+        };
+
+        _tutorial.Show();
+        _tutorial.Activate();
+    }
 
     private void OnMouseEvent(MouseHookEvent kind, int x, int y)
     {
@@ -524,14 +579,15 @@ public sealed class AppController : IDisposable
 
         _trayMenu.Items.Clear();
         bool visible = IsOverlayVisible;
-        _trayMenu.Items.Add(visible ? "Скрыть картинку" : "Показать картинку", null, (_, _) => ToggleOverlay());
-        _trayMenu.Items.Add("Показать 1.png", null, (_, _) => _dispatcher.BeginInvoke(() => _overlay?.ShowIdle()));
-        _trayMenu.Items.Add("Показать 2.png (как после клика)", null, (_, _) => _dispatcher.BeginInvoke(() => _overlay?.ShowClick()));
+        _trayMenu.Items.Add(Loc.T(visible ? "TrayHidePicture" : "TrayShowPicture"), null, (_, _) => ToggleOverlay());
+        _trayMenu.Items.Add(Loc.T("TrayShowIdle"), null, (_, _) => _dispatcher.BeginInvoke(() => _overlay?.ShowIdle()));
+        _trayMenu.Items.Add(Loc.T("TrayShowClick"), null, (_, _) => _dispatcher.BeginInvoke(() => _overlay?.ShowClick()));
         _trayMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        _trayMenu.Items.Add("Настройки...", null, (_, _) => ShowSettings());
+        _trayMenu.Items.Add(Loc.T("TraySettings"), null, (_, _) => ShowSettings());
+        _trayMenu.Items.Add(Loc.T("BtnTutorial"), null, (_, _) => ShowTutorial(true));
         _trayMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        _trayMenu.Items.Add("Выход", null, (_, _) => Exit());
-        _tray.Text = visible ? "MimiTap — картинка показана" : "MimiTap — картинка скрыта";
+        _trayMenu.Items.Add(Loc.T("TrayExit"), null, (_, _) => Exit());
+        _tray.Text = Loc.T(visible ? "TrayTipShown" : "TrayTipHidden");
     }
 
     public void Exit()

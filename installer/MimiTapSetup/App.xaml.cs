@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using MimiTap;
 
 namespace MimiTapSetup;
 
@@ -20,6 +21,9 @@ public sealed partial class App : Application
     {
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        // язык установщика определяем по системе (без выбора в интерфейсе)
+        Loc.SetLanguage(null);
 
         var args = e.Args.ToArray();
 
@@ -39,7 +43,7 @@ public sealed partial class App : Application
         var options = InstallerOptions.FromArgs(args);
 
         // Uninstall.exe лежит в папке установки — берём её оттуда
-        string selfDir = Path.GetDirectoryName(Environment.ProcessPath ?? "");
+        string? selfDir = Path.GetDirectoryName(Environment.ProcessPath ?? "");
         if (selfDir is { Length: > 0 } &&
             string.Equals(Path.GetFileName(Environment.ProcessPath ?? ""), InstallPaths.UninstallerName, StringComparison.OrdinalIgnoreCase) &&
             !args.Any(a => a.StartsWith("/D=", StringComparison.OrdinalIgnoreCase)))

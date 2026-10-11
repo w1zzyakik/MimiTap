@@ -22,6 +22,11 @@
     <Resource Include="Assets\MimiTap.ico" />
   </ItemGroup>
 
+  <!-- словари локализации: ru.json, en.json, … встраиваются в сборку -->
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\Strings\*.json" />
+  </ItemGroup>
+
   <!-- Установщик — отдельный проект в подпапке installer. Исключаем его файлы
        из сборки основного приложения, иначе SDK-глоб затягивает их дважды. -->
   <ItemGroup>

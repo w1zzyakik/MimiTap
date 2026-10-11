@@ -1,6 +1,7 @@
 <Window x:Class="MimiTapSetup.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:MimiTap"
         Title="MimiTap"
         Icon="pack://application:,,,/Assets/MimiTap.ico"
         Width="660" Height="580"
@@ -48,7 +49,7 @@
 
                     <StackPanel Grid.Column="1" Margin="13,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="MimiTap" Style="{StaticResource H1}" FontSize="18" />
-                        <TextBlock x:Name="SubtitleText" Text="Установка" Style="{StaticResource H2}" FontSize="12" Margin="0,1,0,0" />
+                        <TextBlock x:Name="SubtitleText" Text="{loc:Tr InstallerSubtitle}" Style="{StaticResource H2}" FontSize="12" Margin="0,1,0,0" />
                     </StackPanel>
 
                     <Button Grid.Column="2" Style="{StaticResource WindowCloseButton}" Click="OnCloseClick" />
@@ -61,10 +62,8 @@
 
                     <!-- шаг 1: выбор -->
                     <StackPanel x:Name="IntroPanel" VerticalAlignment="Top">
-                        <TextBlock Style="{StaticResource Body}" Margin="0,0,0,14">
-                            Оверлей-картинка поверх всех окон: держите левую кнопку мыши — показывается 2.png,
-                            отпустили — снова 1.png. Клик срабатывает в любом месте экрана.
-                        </TextBlock>
+                        <TextBlock Style="{StaticResource Body}" Margin="0,0,0,14"
+                                   Text="{loc:Tr InstallerIntro}" TextWrapping="Wrap" />
 
                         <Border CornerRadius="14" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" Padding="14">
                             <StackPanel>
@@ -74,30 +73,30 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                        <TextBlock Text="Папка установки" Style="{StaticResource H2}" />
+                                        <TextBlock Text="{loc:Tr InstallerFolder}" Style="{StaticResource H2}" />
                                         <TextBlock x:Name="PathText" Style="{StaticResource Body}" FontFamily="Consolas" FontSize="12.5" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
                                     </StackPanel>
-                                    <Button x:Name="BrowseButton" Grid.Column="1" Content="Изменить" Style="{StaticResource GhostButton}" Padding="14,7" FontSize="12.5" VerticalAlignment="Center" Click="OnBrowseClick" />
+                                    <Button x:Name="BrowseButton" Grid.Column="1" Content="{loc:Tr InstallerBrowse}" Style="{StaticResource GhostButton}" Padding="14,7" FontSize="12.5" VerticalAlignment="Center" Click="OnBrowseClick" />
                                 </Grid>
                             </StackPanel>
                         </Border>
 
                         <Border Margin="0,12,0,0" CornerRadius="14" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" Padding="14,8">
                             <StackPanel>
-                                <CheckBox x:Name="AutoStartBox" Content="Запускать MimiTap при старте Windows (свёрнутым в трей)" IsChecked="True" />
-                                <CheckBox x:Name="DesktopBox" Content="Создать значок на рабочем столе" />
-                                <CheckBox x:Name="RunBox" Content="Запустить MimiTap после установки" />
-                                <CheckBox x:Name="RemoveDataBox" Content="Удалить вместе с программой настройки и картинки" Visibility="Collapsed" />
+                                <CheckBox x:Name="AutoStartBox" Content="{loc:Tr InstallerAutoStart}" IsChecked="True" />
+                                <CheckBox x:Name="DesktopBox" Content="{loc:Tr InstallerDesktop}" />
+                                <CheckBox x:Name="RunBox" Content="{loc:Tr InstallerRun}" />
+                                <CheckBox x:Name="RemoveDataBox" Content="{loc:Tr InstallerRemoveData}" Visibility="Collapsed" />
                             </StackPanel>
                         </Border>
 
-                        <TextBlock Style="{StaticResource H2}" FontSize="12" Margin="2,14,0,0"
-                                   Text="Настройки и картинки хранятся отдельно: %AppData%\MimiTap. Программа работает в трее и не занимает место в панели задач." />
+                        <TextBlock Style="{StaticResource H2}" FontSize="12" Margin="2,14,0,0" TextWrapping="Wrap"
+                                   Text="{loc:Tr InstallerFooter}" />
                     </StackPanel>
 
                     <!-- шаг 2: установка -->
                     <StackPanel x:Name="ProgressPanel" Visibility="Collapsed" VerticalAlignment="Top">
-                        <TextBlock x:Name="StepText" Style="{StaticResource Body}" Margin="0,0,0,10" Text="Подготовка…" />
+                        <TextBlock x:Name="StepText" Style="{StaticResource Body}" Margin="0,0,0,10" Text="{loc:Tr InstallerPreparing}" />
                         <ProgressBar x:Name="Bar" Style="{StaticResource ProgressBar}" IsIndeterminate="True" Minimum="0" Maximum="100" />
                         <Border Margin="0,16,0,0" CornerRadius="12" Background="#12000000" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="12" Height="196">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" Background="Transparent">
@@ -114,7 +113,7 @@
                                   Data="M 0,7 L 4.4,11.4 L 13,1.6"
                                   Stroke="#FFD8CCFF" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
                         </Border>
-                        <TextBlock x:Name="DoneTitle" Style="{StaticResource H1}" HorizontalAlignment="Center" Margin="0,18,0,0" Text="MimiTap установлен" />
+                        <TextBlock x:Name="DoneTitle" Style="{StaticResource H1}" HorizontalAlignment="Center" Margin="0,18,0,0" Text="{loc:Tr InstallerInstalled}" />
                         <TextBlock x:Name="DoneText" Style="{StaticResource H2}" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,8,0,0" />
                     </StackPanel>
                 </Grid>
@@ -129,8 +128,8 @@
                     <TextBlock x:Name="FooterHint" Grid.Column="0" Style="{StaticResource H2}" FontSize="11.5" VerticalAlignment="Center" Text="" />
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button x:Name="SecondaryButton" Content="Отмена" Style="{StaticResource GhostButton}" Margin="0,0,10,0" Padding="20,11" Click="OnSecondaryClick" />
-                        <Button x:Name="PrimaryButton" Content="Установить" Style="{StaticResource PrimaryButton}" Click="OnPrimaryClick" />
+                        <Button x:Name="SecondaryButton" Content="{loc:Tr InstallerCancel}" Style="{StaticResource GhostButton}" Margin="0,0,10,0" Padding="20,11" Click="OnSecondaryClick" />
+                        <Button x:Name="PrimaryButton" Content="{loc:Tr InstallerInstall}" Style="{StaticResource PrimaryButton}" Click="OnPrimaryClick" />
                     </StackPanel>
                 </Grid>
             </Grid>

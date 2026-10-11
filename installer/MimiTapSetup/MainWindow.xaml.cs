@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using MimiTap;
 
 namespace MimiTapSetup;
 
@@ -41,17 +42,17 @@ public partial class MainWindow : Window
 
         if (_uninstall)
         {
-            SubtitleText.Text = "Удаление";
+            SubtitleText.Text = Loc.T("InstallerSubtitleUninstall");
             PathText.Text = options.TargetDir;
             RemoveDataBox.Visibility = Visibility.Visible;
             AutoStartBox.Visibility = Visibility.Collapsed;
             DesktopBox.Visibility = Visibility.Collapsed;
             RunBox.Visibility = Visibility.Collapsed;
             BrowseButton.Visibility = Visibility.Collapsed;
-            PrimaryButton.Content = "Удалить";
+            PrimaryButton.Content = Loc.T("InstallerRemove");
             PrimaryButton.Style = (Style)FindResource("DangerButton");
-            FooterHint.Text = "Программа будет удалена, ярлыки и автозапуск — сняты.";
-            DoneTitle.Text = "MimiTap удалён";
+            FooterHint.Text = Loc.T("InstallerUninstallFooter");
+            DoneTitle.Text = Loc.T("InstallerUninstalled");
         }
         else
         {
@@ -59,7 +60,7 @@ public partial class MainWindow : Window
             DesktopBox.IsChecked = options.DesktopShortcut;
             AutoStartBox.IsChecked = options.AutoStart;
             RunBox.IsChecked = options.RunAfterInstall;
-            FooterHint.Text = "Установка не требует прав администратора.";
+            FooterHint.Text = Loc.T("InstallerNoAdmin");
         }
     }
 
@@ -88,7 +89,7 @@ public partial class MainWindow : Window
     {
         using var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
-            Description = "Папка установки MimiTap",
+            Description = Loc.T("InstallerFolderDialog"),
             SelectedPath = Directory.Exists(_options.TargetDir) ? _options.TargetDir : InstallPaths.DefaultDir,
             UseDescriptionForTitle = true,
             ShowNewFolderButton = true
@@ -137,7 +138,7 @@ public partial class MainWindow : Window
             _options.RunAfterInstall = RunBox.IsChecked == true;
         }
 
-        ShowProgress(_uninstall ? "Удаление…" : "Установка…");
+        ShowProgress(Loc.T(_uninstall ? "InstallerUninstalling" : "InstallerInstalling"));
         LogText.Text = "";
 
         Action<string> report = line => Dispatcher.Invoke(() => AppendLog(line));
@@ -148,13 +149,13 @@ public partial class MainWindow : Window
 
         if (!result.Success)
         {
-            ShowProgress("Ошибка");
-            DoneTitle.Text = "Не получилось";
+            ShowProgress(Loc.T("InstallerError"));
+            DoneTitle.Text = Loc.T("InstallerFailed");
             DoneText.Text = result.Summary;
-            PrimaryButton.Content = "Закрыть";
+            PrimaryButton.Content = Loc.T("InstallerClose");
             PrimaryButton.IsEnabled = true;
             SecondaryButton.Visibility = Visibility.Collapsed;
-            FooterHint.Text = "Подробности — в окне установки выше.";
+            FooterHint.Text = Loc.T("InstallerDetailsAbove");
             return;
         }
 
@@ -178,7 +179,7 @@ public partial class MainWindow : Window
         ProgressPanel.Visibility = Visibility.Visible;
         PrimaryButton.Visibility = Visibility.Collapsed;
         SecondaryButton.Visibility = Visibility.Collapsed;
-        FooterHint.Text = "Не закрывайте окно.";
+        FooterHint.Text = Loc.T("InstallerDontClose");
         StepText.Text = step;
     }
 
@@ -188,11 +189,11 @@ public partial class MainWindow : Window
         DonePanel.Visibility = Visibility.Visible;
         PrimaryButton.Visibility = Visibility.Visible;
         SecondaryButton.Visibility = Visibility.Collapsed;
-        PrimaryButton.Content = "Готово";
+        PrimaryButton.Content = Loc.T("InstallerDone");
         PrimaryButton.IsEnabled = true;
         FooterHint.Text = summary;
         DoneText.Text = summary + Environment.NewLine +
-                        (_uninstall ? "" : $"Настройки: {InstallPaths.DataDir}");
+                        (_uninstall ? "" : Loc.Format("InstallerSettingsLine", InstallPaths.DataDir));
         _busy = false;
     }
 }

@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32;
+using MimiTap;
 
 namespace MimiTapSetup;
 
@@ -114,40 +115,40 @@ public static class Installer
             string appExe = Path.Combine(dir, InstallPaths.AppExeName);
             string uninstaller = Path.Combine(dir, InstallPaths.UninstallerName);
 
-            Say("Закрываю MimiTap, если он запущен…");
+            Say(Loc.T("InstallerClosingApp"));
             StopRunningApp(dir);
 
-            Say($"Создаю папку {dir}");
+            Say(Loc.Format("InstallerCreatingFolder", dir));
             Directory.CreateDirectory(dir);
 
-            Say("Копирую MimiTap.exe…");
+            Say(Loc.T("InstallerCopyingExe"));
             WritePayload(appExe);
 
-            Say("Копирую удалялку…");
+            Say(Loc.T("InstallerCopyingUninstaller"));
             CopySelf(uninstaller);
 
-            Say("Создаю ярлыки в меню «Пуск»…");
+            Say(Loc.T("InstallerShortcuts"));
             Directory.CreateDirectory(InstallPaths.StartMenuGroup);
-            CreateShortcut(Path.Combine(InstallPaths.StartMenuGroup, "MimiTap.lnk"), appExe, "", "MimiTap — оверлей-картинка");
-            CreateShortcut(Path.Combine(InstallPaths.StartMenuGroup, "Настройки MimiTap.lnk"), appExe, "--settings", "Настройки MimiTap");
-            CreateShortcut(Path.Combine(InstallPaths.StartMenuGroup, "Удалить MimiTap.lnk"), uninstaller, "", "Удаление MimiTap");
+            CreateShortcut(Path.Combine(InstallPaths.StartMenuGroup, "MimiTap.lnk"), appExe, "", Loc.T("InstallerShortcutAppDesc"));
+            CreateShortcut(Path.Combine(InstallPaths.StartMenuGroup, Loc.T("InstallerShortcutSettings") + ".lnk"), appExe, "--settings", Loc.T("InstallerShortcutSettingsDesc"));
+            CreateShortcut(Path.Combine(InstallPaths.StartMenuGroup, Loc.T("InstallerShortcutUninstall") + ".lnk"), uninstaller, "", Loc.T("InstallerShortcutUninstallDesc"));
 
             if (options.DesktopShortcut)
             {
-                Say("Создаю значок на рабочем столе…");
-                CreateShortcut(InstallPaths.Desktop, appExe, "", "MimiTap");
+                Say(Loc.T("InstallerDesktopShortcut"));
+                CreateShortcut(InstallPaths.Desktop, appExe, "", Loc.T("InstallerShortcutAppDesc"));
             }
             else
             {
                 DeleteFile(InstallPaths.Desktop);
             }
 
-            Say(options.AutoStart ? "Включаю автозапуск с Windows…" : "Выключаю автозапуск…");
+            Say(Loc.T(options.AutoStart ? "InstallerAutostartOn" : "InstallerAutostartOff"));
             using (var run = Registry.CurrentUser.CreateSubKey(RunKey, true))
             {
                 if (run is null)
                 {
-                    throw new InvalidOperationException("не удалось открыть ключ автозапуска");
+                    throw new InvalidOperationException(Loc.T("InstallerErrRunKey"));
                 }
 
                 if (options.AutoStart)
@@ -160,7 +161,7 @@ public static class Installer
                 }
             }
 
-            Say("Регистрирую программу в «Программы и удаление»…");
+            Say(Loc.T("InstallerRegistering"));
             using (var key = Registry.CurrentUser.CreateSubKey(UninstallKey, true))
             {
                 key?.SetValue("DisplayName", "MimiTap", RegistryValueKind.String);
@@ -187,16 +188,16 @@ public static class Installer
 
             if (options.RunAfterInstall)
             {
-                Say("Запускаю MimiTap…");
+                Say(Loc.T("InstallerLaunching"));
                 StartApp(appExe, "");
             }
 
-            Say("Готово.");
-            return new InstallerResult(true, $"MimiTap установлен в {dir}");
+            Say(Loc.T("InstallerFinished"));
+            return new InstallerResult(true, Loc.Format("InstallerInstalledTo", dir));
         }
         catch (Exception ex)
         {
-            Say($"Ошибка: {ex.Message}");
+            Say(Loc.Format("InstallerErrorLine", ex.Message));
             return new InstallerResult(false, ex.Message);
         }
     }
@@ -215,45 +216,41 @@ public static class Installer
         {
             string dir = Path.GetFullPath(options.TargetDir);
 
-            Say("Закрываю MimiTap, если он запущен…");
+            Say(Loc.T("InstallerClosingApp"));
             StopRunningApp(dir);
 
-            Say("Удаляю ярлыки…");
-            foreach (string name in new[] { "MimiTap.lnk", "Настройки MimiTap.lnk", "Удалить MimiTap.lnk" })
-            {
-                DeleteFile(Path.Combine(InstallPaths.StartMenuGroup, name));
-            }
-
+            Say(Loc.T("InstallerRemovingShortcuts"));
+            // удаляем всю группу «Пуск» целиком: имена ярлыков зависят от языка
+            DeleteDirectory(InstallPaths.StartMenuGroup);
             DeleteFile(InstallPaths.Desktop);
-            DeleteDirectoryIfEmpty(InstallPaths.StartMenuGroup);
 
-            Say("Убираю автозапуск…");
+            Say(Loc.T("InstallerRemovingAutostart"));
             using (var run = Registry.CurrentUser.OpenSubKey(RunKey, true))
             {
                 run?.DeleteValue(RunValueName, false);
             }
 
-            Say("Убираю запись из «Программы и удаление»…");
+            Say(Loc.T("InstallerRemovingRegistry"));
             Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false);
 
             if (options.DeleteUserData)
             {
-                Say("Удаляю настройки и картинки…");
+                Say(Loc.T("InstallerRemovingData"));
                 DeleteDirectory(InstallPaths.DataDir);
             }
             else
             {
-                Say($"Настройки оставлены в {InstallPaths.DataDir}");
+                Say(Loc.Format("InstallerDataKept", InstallPaths.DataDir));
             }
 
-            Say("Удаляю файлы программы…");
+            Say(Loc.T("InstallerRemovingFiles"));
             ScheduleSelfDelete(dir);
 
-            return new InstallerResult(true, "MimiTap удалён");
+            return new InstallerResult(true, Loc.T("InstallerUninstalled"));
         }
         catch (Exception ex)
         {
-            Say($"Ошибка: {ex.Message}");
+            Say(Loc.Format("InstallerErrorLine", ex.Message));
             return new InstallerResult(false, ex.Message);
         }
     }
@@ -263,7 +260,7 @@ public static class Installer
     /// </summary>
     private static void ScheduleSelfDelete(string dir)
     {
-        string self = Environment.ProcessPath;
+        string? self = Environment.ProcessPath;
         if (string.IsNullOrEmpty(self) || !File.Exists(self))
         {
             return;
@@ -308,7 +305,7 @@ public static class Installer
 
         try
         {
-            string me = Environment.ProcessPath;
+            string? me = Environment.ProcessPath;
             if (!string.IsNullOrEmpty(me) && File.Exists(me))
             {
                 Process.Start(new ProcessStartInfo
@@ -333,7 +330,7 @@ public static class Installer
         using Stream? source = assembly.GetManifestResourceStream(App.PayloadResourceName);
         if (source is null)
         {
-            throw new InvalidOperationException("в установщике нет файла программы — сначала выполните publish");
+            throw new InvalidOperationException(Loc.T("InstallerErrNoPayload"));
         }
 
         string temp = target + ".new";
@@ -353,10 +350,10 @@ public static class Installer
 
     private static void CopySelf(string target)
     {
-        string self = Environment.ProcessPath;
+        string? self = Environment.ProcessPath;
         if (string.IsNullOrEmpty(self) || !File.Exists(self))
         {
-            throw new InvalidOperationException("не удалось определить путь к установщику");
+            throw new InvalidOperationException(Loc.T("InstallerErrNoSelf"));
         }
 
         File.Copy(self, target, true);
@@ -442,20 +439,6 @@ public static class Installer
             if (File.Exists(path))
             {
                 File.Delete(path);
-            }
-        }
-        catch
-        {
-        }
-    }
-
-    private static void DeleteDirectoryIfEmpty(string path)
-    {
-        try
-        {
-            if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any())
-            {
-                Directory.Delete(path);
             }
         }
         catch

@@ -33,6 +33,7 @@ public static class SelfTest
         try
         {
             RunChecks(controller, report);
+            CheckLocalization(report);
         }
         catch (Exception ex)
         {
@@ -44,9 +45,22 @@ public static class SelfTest
         Application.Current.Shutdown();
     }
 
-    private static void RunChecks(AppController controller, StringBuilder report)
+    private static void CheckLocalization(StringBuilder report)
     {
-        var settings = controller.Settings;
+        report.AppendLine("localization:");
+        string current = Loc.Instance.Language;
+
+        foreach (string code in Loc.Supported)
+        {
+            Loc.SetLanguage(code);
+            report.AppendLine($"  {code}: settings='{Loc.T("TraySettings")}' about='{Loc.T("AboutTagline")}'");
+        }
+
+        Loc.SetLanguage(current);
+    }
+
+    private static void RunChecks(AppController controller, StringBuilder report)
+    {        var settings = controller.Settings;
 
         report.AppendLine($"idle image: {settings.IdleImagePath} exists={File.Exists(settings.IdleImagePath)}");
         report.AppendLine($"click image: {settings.ClickImagePath} exists={File.Exists(settings.ClickImagePath)}");

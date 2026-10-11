@@ -13,18 +13,29 @@ namespace MimiTap;
 
 public partial class SettingsWindow : Window
 {
+    private enum StatusKind
+    {
+        Idle,
+        Saved,
+        Reset,
+        Error
+    }
+
     private readonly AppController _controller;
     private AppSettings _working = new();
     private bool _loading = true;
     private bool _allowClose;
     private string _idlePath = string.Empty;
     private string _clickPath = string.Empty;
+    private StatusKind _statusKind = StatusKind.Idle;
+    private string _statusError = string.Empty;
 
     public SettingsWindow(AppController controller)
     {
         _controller = controller;
         InitializeComponent();
         TitleIcon.Source = LoadPreviewImage(SettingsStore.DefaultIcon, null);
+        VersionText.Text = FormatVersion();
         Loaded += (_, _) =>
         {
             if (_loading)
@@ -37,6 +48,22 @@ public partial class SettingsWindow : Window
     public void AllowClose()
     {
         _allowClose = true;
+    }
+
+    private static string FormatVersion()
+    {
+        Version? version = typeof(App).Assembly.GetName().Version;
+        return version is null ? "1.0" : $"{version.Major}.{version.Minor}.{version.Build}";
+    }
+
+    /// <summary>Вызывается контроллером после смены языка — обновляет вычисляемые надписи.</summary>
+    public void RefreshDynamicText()
+    {
+        UpdateOverlayButton();
+        UpdateSoundInfo(_working);
+        UpdateZoneInfo(CollectProbe());
+        UpdatePreview();
+        ApplyStatusText();
     }
 
     public void LoadFrom(AppSettings settings)
@@ -57,6 +84,8 @@ public partial class SettingsWindow : Window
         PosXBox.Text = settings.PositionX is double px ? px.ToString("0") : string.Empty;
         PosYBox.Text = settings.PositionY is double py ? py.ToString("0") : string.Empty;
 
+        LanguageBox.SelectedIndex = IndexOfTag(LanguageBox, settings.Language);
+
         MouseHookEnabledBox.IsChecked = settings.MouseHookEnabled;
         HitTestBox.SelectedIndex = IndexOfTag(HitTestBox, settings.HitTestMode);
         ZoneSlider.Value = settings.ClickZonePadding;
@@ -69,14 +98,11 @@ public partial class SettingsWindow : Window
         AlwaysOnTopBox.IsChecked = settings.AlwaysOnTop;
         StartVisibleBox.IsChecked = settings.StartVisible;
         OpacitySlider.Value = settings.Opacity;
-        OpacityText.Text = $"{settings.Opacity * 100:0}%";
 
         SoundEnabledBox.IsChecked = settings.SoundEnabled;
         SoundPathBox.Text = settings.SoundPath;
         VolumeSlider.Value = settings.Volume;
-        VolumeText.Text = $"{settings.Volume * 100:0}%";
         MaxSecondsSlider.Value = settings.SoundMaxSeconds;
-        MaxSecondsText.Text = settings.SoundMaxSeconds.ToString("0.00") + " с";
 
         AutoStartBox.IsChecked = settings.AutoStart;
         HotkeyEnabledBox.IsChecked = settings.HotkeyEnabled;
@@ -85,16 +111,19 @@ public partial class SettingsWindow : Window
         HotkeyShiftBox.IsChecked = settings.HotkeyShift;
         HotkeyKeyBox.SelectedIndex = Math.Max(0, IndexOfTag(HotkeyKeyBox, settings.HotkeyKey));
 
-        ShowOverlayButton.Content = settings.StartVisible ? "Скрыть картинку" : "Показать картинку";
-
         WidthBox.IsEnabled = !settings.UseImageSize;
         HeightBox.IsEnabled = !settings.UseImageSize;
 
+        _statusKind = StatusKind.Idle;
+        _statusError = string.Empty;
+
+        UpdateOverlayButton();
+        UpdatePercentText();
         UpdateSoundInfo(settings);
-        UpdatePreview();
         UpdateZoneInfo(settings);
+        UpdatePreview();
+        ApplyStatusText();
         _loading = false;
-        StatusText.Text = "Настройки сохраняются в %AppData%\\MimiTap\\settings.json";
     }
 
     private void Collect(AppSettings target)
@@ -108,6 +137,7 @@ public partial class SettingsWindow : Window
         target.LockAspect = LockAspectBox.IsChecked == true;
         target.Screen = TagOf(ScreenBox, "Primary");
         target.Anchor = TagOf(AnchorBox, "Free");
+        target.Language = Loc.Canonical(TagOf(LanguageBox, string.Empty));
 
         bool hasX = double.TryParse(PosXBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double px);
         bool hasY = double.TryParse(PosYBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double py);
@@ -142,6 +172,13 @@ public partial class SettingsWindow : Window
         target.Normalize();
     }
 
+    private AppSettings CollectProbe()
+    {
+        var probe = _working.Clone();
+        Collect(probe);
+        return probe;
+    }
+
     private void SaveSettings(object sender, RoutedEventArgs e)
     {
         var next = _controller.Settings.Clone();
@@ -151,16 +188,56 @@ public partial class SettingsWindow : Window
         {
             _controller.ApplySettings(next);
             _working = next.Clone();
-            ShowOverlayButton.Content = next.StartVisible ? "Скрыть картинку" : "Показать картинку";
-            StatusText.Text = "Сохранено";
-            StatusText.Foreground = FindResource("AccentBrush") as Brush;
+            _statusKind = StatusKind.Saved;
+            _statusError = string.Empty;
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Не удалось сохранить: " + ex.Message;
-            StatusText.Foreground = FindResource("DangerBrush") as Brush;
+            _statusKind = StatusKind.Error;
+            _statusError = ex.Message;
             SettingsStore.WriteTextFile(SettingsStore.ErrorLogPath, ex.ToString());
         }
+
+        UpdateOverlayButton();
+        ApplyStatusText();
+    }
+
+    private void ApplyStatusText()
+    {
+        switch (_statusKind)
+        {
+            case StatusKind.Saved:
+                StatusText.Text = Loc.T("StatusSaved");
+                StatusText.Foreground = FindResource("AccentHoverBrush") as Brush;
+                break;
+            case StatusKind.Reset:
+                StatusText.Text = Loc.T("StatusReset");
+                StatusText.Foreground = FindResource("AccentHoverBrush") as Brush;
+                break;
+            case StatusKind.Error:
+                StatusText.Text = Loc.Format("StatusSaveFailed", _statusError);
+                StatusText.Foreground = FindResource("DangerBrush") as Brush;
+                break;
+            default:
+                StatusText.Text = Loc.T("FooterStatus");
+                StatusText.Foreground = FindResource("MutedBrush") as Brush;
+                break;
+        }
+    }
+
+    private void UpdateOverlayButton()
+    {
+        bool visible = _controller.IsOverlayVisible;
+        ShowOverlayButton.Content = Loc.T(visible ? "BtnHideOverlay" : "BtnShowOverlay");
+    }
+
+    private void UpdatePercentText()
+    {
+        string percent = Loc.T("UnitPercent");
+        OpacityText.Text = $"{OpacitySlider.Value * 100:0}{percent}";
+        VolumeText.Text = $"{VolumeSlider.Value * 100:0}{percent}";
+        MaxSecondsText.Text = MaxSecondsSlider.Value.ToString("0.00", CultureInfo.CurrentCulture) + " " + Loc.T("UnitSeconds");
+        ZoneValueText.Text = $"{ZoneSlider.Value:0} {Loc.T("UnitPx")}";
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -187,11 +264,47 @@ public partial class SettingsWindow : Window
 
     private void ExitApp(object sender, RoutedEventArgs e) => _controller.Exit();
 
+    private void OnNavChanged(object sender, RoutedEventArgs e)
+    {
+        if (SectionGeneral is null)
+        {
+            return;
+        }
+
+        if (sender is RadioButton { Tag: string tag })
+        {
+            ShowSection(tag);
+        }
+    }
+
+    private void ShowSection(string tag)
+    {
+        SectionGeneral.Visibility = tag == "General" ? Visibility.Visible : Visibility.Collapsed;
+        SectionAppearance.Visibility = tag == "Appearance" ? Visibility.Visible : Visibility.Collapsed;
+        SectionClicks.Visibility = tag == "Clicks" ? Visibility.Visible : Visibility.Collapsed;
+        SectionSound.Visibility = tag == "Sound" ? Visibility.Visible : Visibility.Collapsed;
+        SectionSystem.Visibility = tag == "System" ? Visibility.Visible : Visibility.Collapsed;
+        SectionAbout.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || LanguageBox is null)
+        {
+            return;
+        }
+
+        _controller.ApplyLanguage(TagOf(LanguageBox, string.Empty));
+        RefreshDynamicText();
+    }
+
+    private void OnShowTutorial(object sender, RoutedEventArgs e) => _controller.ShowTutorial(true);
+
     private void ResetAll(object sender, RoutedEventArgs e)
     {
         var result = MessageBox.Show(
             this,
-            "Сбросить все настройки к значениям по умолчанию?",
+            Loc.T("ConfirmReset"),
             "MimiTap",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
@@ -204,18 +317,19 @@ public partial class SettingsWindow : Window
         var next = _controller.DefaultSettings();
         _controller.ApplySettings(next);
         LoadFrom(next);
-        StatusText.Text = "Сброшено к значениям по умолчанию";
+        _statusKind = StatusKind.Reset;
+        ApplyStatusText();
     }
 
     private void ToggleOverlayVisibility(object sender, RoutedEventArgs e)
     {
         _controller.ToggleOverlay();
-        ShowOverlayButton.Content = _controller.IsOverlayVisible ? "Скрыть картинку" : "Показать картинку";
+        UpdateOverlayButton();
     }
 
     private void PickIdleImage(object sender, RoutedEventArgs e)
     {
-        var file = PickImage(_idlePath);
+        var file = PickImage(_idlePath, Loc.T("DialogPickImage"));
         if (file is null)
         {
             return;
@@ -228,7 +342,7 @@ public partial class SettingsWindow : Window
 
     private void PickClickImage(object sender, RoutedEventArgs e)
     {
-        var file = PickImage(_clickPath);
+        var file = PickImage(_clickPath, Loc.T("DialogPickImage"));
         if (file is null)
         {
             return;
@@ -253,12 +367,12 @@ public partial class SettingsWindow : Window
         UpdatePreview();
     }
 
-    private string? PickImage(string current)
+    private string? PickImage(string current, string title)
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Выберите изображение",
-            Filter = "Изображения (*.png;*.jpg;*.jpeg;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.bmp;*.gif|Все файлы (*.*)|*.*",
+            Title = title,
+            Filter = Loc.T("FilterImages"),
             InitialDirectory = File.Exists(current) ? Path.GetDirectoryName(current) : SettingsStore.AssetsDir
         };
 
@@ -269,8 +383,8 @@ public partial class SettingsWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Выберите звук нажатия",
-            Filter = "Звуки (*.wav;*.mp3;*.m4a;*.wma;*.aac;*.ogg)|*.wav;*.mp3;*.m4a;*.wma;*.aac;*.ogg|Все файлы (*.*)|*.*",
+            Title = Loc.T("DialogPickSound"),
+            Filter = Loc.T("FilterSounds"),
             InitialDirectory = File.Exists(SoundPathBox.Text) ? Path.GetDirectoryName(SoundPathBox.Text) : null
         };
 
@@ -280,10 +394,8 @@ public partial class SettingsWindow : Window
         }
 
         SoundPathBox.Text = dialog.FileName;
-        var next = _working.Clone();
-        Collect(next);
-        _working = next;
-        UpdateSoundInfo(next);
+        _working = CollectProbe();
+        UpdateSoundInfo(_working);
     }
 
     private void ResetSound(object sender, RoutedEventArgs e)
@@ -294,9 +406,7 @@ public partial class SettingsWindow : Window
 
     private void TestSound(object sender, RoutedEventArgs e)
     {
-        var next = _working.Clone();
-        Collect(next);
-        _controller.TestSound(next);
+        _controller.TestSound(CollectProbe());
     }
 
     private void UpdateSoundInfo(AppSettings settings)
@@ -309,17 +419,18 @@ public partial class SettingsWindow : Window
         if (string.IsNullOrWhiteSpace(settings.SoundPath) || !File.Exists(settings.SoundPath))
         {
             SoundInfoText.Text = string.IsNullOrWhiteSpace(settings.SoundPath)
-                ? "Звук не выбран — будет тишина."
-                : "Файл звука не найден";
+                ? Loc.T("SoundNone")
+                : Loc.T("SoundNotFound");
             return;
         }
 
         var duration = SoundService.TryGetDuration(settings.SoundPath);
+        string clip = settings.SoundMaxSeconds.ToString("0.00", CultureInfo.CurrentCulture);
         SoundInfoText.Text = duration is null
-            ? $"Файл: {Path.GetFileName(settings.SoundPath)} (обрезка до {settings.SoundMaxSeconds:0.00} с)"
+            ? Loc.Format("SoundFileClip", Path.GetFileName(settings.SoundPath), clip)
             : duration.Value > settings.SoundMaxSeconds + 0.001
-                ? $"Длительность {duration.Value:0.00} с — обрезается до {settings.SoundMaxSeconds:0.00} с"
-                : $"Длительность {duration.Value:0.00} с — укладывается в лимит";
+                ? Loc.Format("SoundDurationClip", duration.Value.ToString("0.00", CultureInfo.CurrentCulture), clip)
+                : Loc.Format("SoundDurationFit", duration.Value.ToString("0.00", CultureInfo.CurrentCulture));
     }
 
     private void OnSizeModeChanged(object sender, RoutedEventArgs e)
@@ -397,7 +508,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        OpacityText.Text = $"{e.NewValue * 100:0}%";
+        OpacityText.Text = $"{e.NewValue * 100:0}{Loc.T("UnitPercent")}";
         UpdatePreview();
     }
 
@@ -405,7 +516,7 @@ public partial class SettingsWindow : Window
     {
         if (VolumeText is not null)
         {
-            VolumeText.Text = $"{e.NewValue * 100:0}%";
+            VolumeText.Text = $"{e.NewValue * 100:0}{Loc.T("UnitPercent")}";
         }
     }
 
@@ -416,10 +527,10 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        MaxSecondsText.Text = e.NewValue.ToString("0.00") + " с";
+        MaxSecondsText.Text = e.NewValue.ToString("0.00", CultureInfo.CurrentCulture) + " " + Loc.T("UnitSeconds");
         if (!_loading)
         {
-            UpdateSoundInfo(_working);
+            UpdateSoundInfo(CollectProbe());
         }
     }
 
@@ -460,8 +571,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var next = _working.Clone();
-        Collect(next);
+        var next = CollectProbe();
 
         bool showClick = PreviewClickBox.IsChecked == true;
         string source = showClick ? next.ClickImagePath : next.IdleImagePath;
@@ -491,26 +601,33 @@ public partial class SettingsWindow : Window
 
         if (!_controller.HookInstalled && settings.MouseHookEnabled)
         {
-            ZoneInfoText.Text = "ВНИМАНИЕ: глобальный хук мыши не установлен — клики не отслеживаются.";
+            ZoneInfoText.Text = Loc.T("ZoneWarning");
             return;
         }
 
         if (!settings.MouseHookEnabled)
         {
-            ZoneInfoText.Text = "Хук мыши выключен: клики обрабатывает только сама картинка (если кликабельность не отключена).";
+            ZoneInfoText.Text = Loc.T("ZoneHookOff");
             return;
         }
 
         if (screenMode)
         {
-            ZoneInfoText.Text = "Клик засчитывается в любом месте экрана.";
+            ZoneInfoText.Text = Loc.T("ZoneScreen");
             return;
         }
 
         var zone = _controller.ClickZoneRect();
-        ZoneInfoText.Text = $"Картинка {settings.Width}×{settings.Height} px, зона клика {zone.Width:0}×{zone.Height:0} px " +
-                            $"(X: {zone.Left:0}…{zone.Right:0}, Y: {zone.Top:0}…{zone.Bottom:0}). " +
-                            "Клик по «воздуху» вокруг картинки тоже переключает её.";
+        ZoneInfoText.Text = Loc.Format(
+            "ZoneDetails",
+            settings.Width,
+            settings.Height,
+            zone.Width.ToString("0"),
+            zone.Height.ToString("0"),
+            zone.Left.ToString("0"),
+            zone.Right.ToString("0"),
+            zone.Top.ToString("0"),
+            zone.Bottom.ToString("0"));
     }
 
     private void OnZoneChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -520,15 +637,14 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        ZoneValueText.Text = $"{e.NewValue:0} px";
+        ZoneValueText.Text = $"{e.NewValue:0} {Loc.T("UnitPx")}";
 
         if (_loading)
         {
             return;
         }
 
-        var next = _working.Clone();
-        Collect(next);
+        var next = CollectProbe();
         next.ClickZonePadding = (int)Math.Round(e.NewValue);
         _controller.PreviewSettings(next);
         UpdateZoneInfo(next);
@@ -541,8 +657,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var next = _working.Clone();
-        Collect(next);
+        var next = CollectProbe();
         _controller.PreviewSettings(next);
         UpdateZoneInfo(next);
     }

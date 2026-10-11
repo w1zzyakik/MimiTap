@@ -80,6 +80,8 @@ public sealed class AppSettings
     public bool HotkeyAlt { get; set; } = true;
     public bool HotkeyShift { get; set; }
     public string HotkeyKey { get; set; } = "M";
+    public string Language { get; set; } = "";
+    public bool TutorialSeen { get; set; }
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
 
@@ -109,6 +111,8 @@ public sealed class AppSettings
         {
             HotkeyKey = "M";
         }
+
+        Language = Loc.Canonical(Language);
     }
 }
 
