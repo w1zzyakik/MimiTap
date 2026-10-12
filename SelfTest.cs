@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -72,18 +73,88 @@ public static class SelfTest
         CheckPositionSave(controller, report);
         CheckSettingsWindow(controller, report);
         CheckSound(controller, report);
+        CheckBindings(controller, report);
+        CheckPresets(controller, report);
 
         report.AppendLine($"autostart registered: {AutoStart.IsEnabled()}");
         report.AppendLine($"mouse hook enabled: {settings.MouseHookEnabled}");
         report.AppendLine($"hit test mode: {settings.HitTestMode}");
+        report.AppendLine($"input bindings: [{string.Join(", ", settings.InputBindings)}] reactAll={settings.ReactToAllInputs}");
     }
 
     private static void CheckAssets(StringBuilder report)
     {
-        foreach (string path in new[] { SettingsStore.DefaultIdleImage, SettingsStore.DefaultClickImage, SettingsStore.DefaultIcon })
+        foreach (string path in new[]
+                 {
+                     SettingsStore.DefaultIdleImage,
+                     SettingsStore.DefaultClickImage,
+                     SettingsStore.DefaultPreset2Idle,
+                     SettingsStore.DefaultPreset2Click,
+                     SettingsStore.DefaultIcon
+                 })
         {
             var info = new FileInfo(path);
             report.AppendLine($"asset {Path.GetFileName(path)}: exists={info.Exists} size={(info.Exists ? info.Length : 0)}");
+        }
+    }
+
+    private static void CheckPresets(AppController controller, StringBuilder report)
+    {
+        var original = controller.Settings.Clone();
+
+        try
+        {
+            report.AppendLine($"presets: count={controller.Settings.Presets.Count} active={controller.Settings.ActivePreset}");
+            for (int i = 0; i < controller.Settings.Presets.Count; i++)
+            {
+                var preset = controller.Settings.Presets[i];
+                string name = string.IsNullOrWhiteSpace(preset.Name)
+                    ? Loc.Format("PresetDefaultName", i + 1)
+                    : preset.Name;
+                report.AppendLine(
+                    $"  preset[{i}] '{name}' idle={Path.GetFileName(preset.IdleImagePath)} exists={File.Exists(preset.IdleImagePath)} " +
+                    $"click={Path.GetFileName(preset.ClickImagePath)} exists={File.Exists(preset.ClickImagePath)}");
+            }
+
+            // старый settings.json без пресетов должен превратиться в два набора
+            var legacy = new AppSettings
+            {
+                IdleImagePath = SettingsStore.DefaultIdleImage,
+                ClickImagePath = SettingsStore.DefaultClickImage
+            };
+            legacy.Normalize();
+            report.AppendLine($"presets from empty: count={legacy.Presets.Count} active={legacy.ActivePreset}");
+
+            var defaults = AppController.Defaults();
+            report.AppendLine($"presets from defaults: count={defaults.Presets.Count} active={defaults.ActivePreset}");
+
+            // переключение активного пресета меняет показываемую картинку
+            if (controller.Settings.Presets.Count > 1)
+            {
+                var first = controller.Settings.Clone();
+                first.ActivePreset = 0;
+                first.IdleImagePath = first.Presets[0].IdleImagePath;
+                first.ClickImagePath = first.Presets[0].ClickImagePath;
+                controller.PreviewSettings(first);
+                string firstName = controller.Overlay?.CurrentImageName ?? "-";
+
+                var second = controller.Settings.Clone();
+                second.ActivePreset = 1;
+                second.IdleImagePath = second.Presets[1].IdleImagePath;
+                second.ClickImagePath = second.Presets[1].ClickImagePath;
+                controller.PreviewSettings(second);
+                string secondName = controller.Overlay?.CurrentImageName ?? "-";
+
+                report.AppendLine($"preset switch: [{firstName}] -> [{secondName}]");
+            }
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("presets FAILED: " + ex.Message);
+        }
+        finally
+        {
+            controller.PreviewSettings(original);
         }
     }
 
@@ -263,6 +334,51 @@ public static class SelfTest
         catch (Exception ex)
         {
             report.AppendLine("settings window FAILED: " + ex);
+        }
+    }
+
+    private static void CheckBindings(AppController controller, StringBuilder report)
+    {
+        var original = controller.Settings.Clone();
+
+        try
+        {
+            // нормализация: повторы и пустые слоты вычищаются, позиции сохраняются
+            var probe = new AppSettings
+            {
+                InputBindings = new List<string> { "MouseLeft", "Key.Space", "MouseLeft", "", "MouseRight" },
+                ReactToAllInputs = false
+            };
+            probe.Normalize();
+            report.AppendLine($"bindings normalize: [{string.Join(", ", probe.InputBindings)}] count={probe.InputBindings.Count}");
+
+            // разбор токенов
+            foreach (string token in new[] { "MouseLeft", "MouseX2", "Key.Space", "Key.F5", "мусор" })
+            {
+                string kind;
+                if (Inputs.TryParseKey(token, out var key))
+                {
+                    kind = $"key={key}";
+                }
+                else if (token is Inputs.MouseLeft or Inputs.MouseRight or Inputs.MouseMiddle or Inputs.MouseX1 or Inputs.MouseX2)
+                {
+                    kind = "mouse";
+                }
+                else
+                {
+                    kind = "unknown";
+                }
+
+                report.AppendLine($"bindings token {token}: {kind}");
+            }
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("bindings FAILED: " + ex.Message);
+        }
+        finally
+        {
+            controller.ApplySettings(original);
         }
     }
 

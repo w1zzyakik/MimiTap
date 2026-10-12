@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
@@ -30,10 +31,21 @@ public partial class SettingsWindow : Window
     private StatusKind _statusKind = StatusKind.Idle;
     private string _statusError = string.Empty;
 
+    // слоты своих привязок: фиксированная длина 10, пустая строка — свободный слот
+    private readonly List<string> _bindings = new();
+    private readonly Button[] _bindSlots = new Button[Inputs.MaxSlots];
+    private int _captureSlot = -1;
+
+    // пресеты: наборы кадров; _activePreset указывает, какой сейчас редактируется
+    private const int MaxPresets = 20;
+    private readonly List<ImagePreset> _presets = new();
+    private int _activePreset;
+
     public SettingsWindow(AppController controller)
     {
         _controller = controller;
         InitializeComponent();
+        BuildBindingsUi();
         TitleIcon.Source = LoadPreviewImage(SettingsStore.DefaultIcon, null);
         VersionText.Text = FormatVersion();
         Loaded += (_, _) =>
@@ -63,6 +75,8 @@ public partial class SettingsWindow : Window
         UpdateSoundInfo(_working);
         UpdateZoneInfo(CollectProbe());
         UpdatePreview();
+        RefreshBindingsUi();
+        RefreshPresetsUi();
         ApplyStatusText();
     }
 
@@ -73,6 +87,27 @@ public partial class SettingsWindow : Window
 
         _idlePath = settings.IdleImagePath;
         _clickPath = settings.ClickImagePath;
+
+        _presets.Clear();
+        foreach (var preset in settings.Presets)
+        {
+            _presets.Add(new ImagePreset
+            {
+                Name = preset.Name,
+                IdleImagePath = preset.IdleImagePath,
+                ClickImagePath = preset.ClickImagePath
+            });
+        }
+
+        if (_presets.Count == 0)
+        {
+            _presets.Add(new ImagePreset { IdleImagePath = _idlePath, ClickImagePath = _clickPath });
+        }
+
+        _activePreset = Math.Clamp(settings.ActivePreset, 0, _presets.Count - 1);
+        SyncActivePresetIntoList();
+        RefreshPresetsUi();
+
         UseImageSizeBox.IsChecked = settings.UseImageSize;
         WidthBox.Text = settings.Width.ToString(CultureInfo.InvariantCulture);
         HeightBox.Text = settings.Height.ToString(CultureInfo.InvariantCulture);
@@ -93,6 +128,14 @@ public partial class SettingsWindow : Window
         ClickDurationBox.Text = settings.ClickDurationMs.ToString(CultureInfo.InvariantCulture);
         ClickDurationBox.IsEnabled = TagOf(ClickBehaviorBox, "Toggle") == "Timed";
         DragToMoveBox.IsChecked = settings.DragToMove;
+
+        _bindings.Clear();
+        _bindings.AddRange(settings.InputBindings);
+        EnsureBindingsSize();
+        _captureSlot = -1;
+        ReactAllBox.IsChecked = settings.ReactToAllInputs;
+        RefreshBindingsUi();
+
         ClickThroughBox.IsChecked = settings.ClickThrough;
         NoActivateBox.IsChecked = settings.NoActivate;
         AlwaysOnTopBox.IsChecked = settings.AlwaysOnTop;
@@ -128,8 +171,21 @@ public partial class SettingsWindow : Window
 
     private void Collect(AppSettings target)
     {
+        SyncActivePresetIntoList();
         target.IdleImagePath = _idlePath;
         target.ClickImagePath = _clickPath;
+        target.Presets = new List<ImagePreset>();
+        foreach (var preset in _presets)
+        {
+            target.Presets.Add(new ImagePreset
+            {
+                Name = preset.Name,
+                IdleImagePath = preset.IdleImagePath,
+                ClickImagePath = preset.ClickImagePath
+            });
+        }
+
+        target.ActivePreset = _activePreset;
         target.UseImageSize = UseImageSizeBox.IsChecked == true;
         target.Width = ParseInt(WidthBox.Text, target.Width, 16, 10000);
         target.Height = ParseInt(HeightBox.Text, target.Height, 16, 10000);
@@ -154,6 +210,8 @@ public partial class SettingsWindow : Window
         target.ClickBehavior = TagOf(ClickBehaviorBox, "Toggle");
         target.ClickDurationMs = ParseInt(ClickDurationBox.Text, 150, 20, 5000);
         target.DragToMove = DragToMoveBox.IsChecked == true;
+        target.ReactToAllInputs = ReactAllBox.IsChecked == true;
+        target.InputBindings = new List<string>(_bindings);
         target.ClickThrough = ClickThroughBox.IsChecked == true;
         target.NoActivate = NoActivateBox.IsChecked == true;
         target.AlwaysOnTop = AlwaysOnTopBox.IsChecked == true;
@@ -675,6 +733,443 @@ public partial class SettingsWindow : Window
         }
         catch (InvalidOperationException)
         {
+        }
+    }
+
+    /// <summary>Переносит текущие картинки в редактируемый пресет, чтобы правки не потерялись.</summary>
+    private void SyncActivePresetIntoList()
+    {
+        if (_activePreset < 0 || _activePreset >= _presets.Count)
+        {
+            return;
+        }
+
+        _presets[_activePreset].IdleImagePath = _idlePath;
+        _presets[_activePreset].ClickImagePath = _clickPath;
+    }
+
+    /// <summary>Перестраивает список пресетов: выбор, имя и удаление для каждого.</summary>
+    private void RefreshPresetsUi()
+    {
+        if (PresetsList is null)
+        {
+            return;
+        }
+
+        PresetsList.Children.Clear();
+        for (int i = 0; i < _presets.Count; i++)
+        {
+            PresetsList.Children.Add(BuildPresetRow(i));
+        }
+
+        if (AddPresetButton is not null)
+        {
+            AddPresetButton.IsEnabled = _presets.Count < MaxPresets;
+        }
+    }
+
+    private FrameworkElement BuildPresetRow(int index)
+    {
+        var preset = _presets[index];
+
+        var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var select = new RadioButton
+        {
+            GroupName = "PresetGroup",
+            IsChecked = index == _activePreset,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0),
+            Style = FindResource("PresetSelect") as Style,
+            Tag = index
+        };
+        select.Checked += OnPresetSelected;
+        Grid.SetColumn(select, 0);
+        row.Children.Add(select);
+
+        var nameBox = new TextBox
+        {
+            Text = preset.Name ?? string.Empty,
+            Tag = index,
+            MinWidth = 120,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        nameBox.TextChanged += OnPresetNameChanged;
+
+        // подсказка с именем по умолчанию: видна, пока поле пустое
+        var watermark = new TextBlock
+        {
+            Text = Loc.Format("PresetDefaultName", index + 1),
+            Foreground = FindResource("MutedBrush") as Brush,
+            Margin = new Thickness(10, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+            Visibility = string.IsNullOrEmpty(preset.Name) ? Visibility.Visible : Visibility.Collapsed
+        };
+        nameBox.TextChanged += (_, _) =>
+            watermark.Visibility = string.IsNullOrEmpty(nameBox.Text) ? Visibility.Visible : Visibility.Collapsed;
+
+        var nameCell = new Grid();
+        nameCell.Children.Add(nameBox);
+        nameCell.Children.Add(watermark);
+        Grid.SetColumn(nameCell, 1);
+        row.Children.Add(nameCell);
+
+        var remove = new Button
+        {
+            Content = Loc.T("PresetDelete"),
+            Tag = index,
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            IsEnabled = _presets.Count > 1
+        };
+        remove.Click += RemovePreset;
+        Grid.SetColumn(remove, 2);
+        row.Children.Add(remove);
+
+        return row;
+    }
+
+    private void OnPresetSelected(object sender, RoutedEventArgs e)
+    {
+        if (_loading || sender is not RadioButton { Tag: int index })
+        {
+            return;
+        }
+
+        if (index == _activePreset || index < 0 || index >= _presets.Count)
+        {
+            return;
+        }
+
+        SyncActivePresetIntoList();
+        _activePreset = index;
+        _idlePath = _presets[index].IdleImagePath;
+        _clickPath = _presets[index].ClickImagePath;
+        _controller.PreviewImagePath(_idlePath, _clickPath);
+        UpdatePreview();
+    }
+
+    private void OnPresetNameChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading || sender is not TextBox { Tag: int index })
+        {
+            return;
+        }
+
+        if (index >= 0 && index < _presets.Count)
+        {
+            _presets[index].Name = ((TextBox)sender).Text;
+        }
+    }
+
+    private void AddPreset(object sender, RoutedEventArgs e)
+    {
+        if (_presets.Count >= MaxPresets)
+        {
+            return;
+        }
+
+        SyncActivePresetIntoList();
+        _presets.Add(new ImagePreset
+        {
+            IdleImagePath = SettingsStore.DefaultIdleImage,
+            ClickImagePath = SettingsStore.DefaultClickImage
+        });
+        _activePreset = _presets.Count - 1;
+        _idlePath = SettingsStore.DefaultIdleImage;
+        _clickPath = SettingsStore.DefaultClickImage;
+        _controller.PreviewImagePath(_idlePath, _clickPath);
+        RefreshPresetsUi();
+        UpdatePreview();
+    }
+
+    private void RemovePreset(object sender, RoutedEventArgs e)
+    {
+        // последний пресет удалять нельзя — иначе нечего показывать
+        if (_presets.Count <= 1 || sender is not Button { Tag: int index })
+        {
+            return;
+        }
+
+        if (index < 0 || index >= _presets.Count)
+        {
+            return;
+        }
+
+        SyncActivePresetIntoList();
+        _presets.RemoveAt(index);
+
+        if (_activePreset > index)
+        {
+            _activePreset--;
+        }
+
+        _activePreset = Math.Clamp(_activePreset, 0, _presets.Count - 1);
+        _idlePath = _presets[_activePreset].IdleImagePath;
+        _clickPath = _presets[_activePreset].ClickImagePath;
+        _controller.PreviewImagePath(_idlePath, _clickPath);
+        RefreshPresetsUi();
+        UpdatePreview();
+    }
+
+    /// <summary>Строит 10 слотов своих привязок.</summary>
+    private void BuildBindingsUi()
+    {
+        BindingsGrid.Children.Clear();
+        for (int i = 0; i < Inputs.MaxSlots; i++)
+        {
+            var button = new Button
+            {
+                Tag = i,
+                Margin = i % 2 == 0 ? new Thickness(0, 3, 3, 3) : new Thickness(3, 3, 0, 3),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Style = FindResource("BaseButton") as Style
+            };
+            button.Click += OnBindSlotClick;
+            button.PreviewMouseRightButtonUp += OnBindSlotClear;
+            _bindSlots[i] = button;
+            BindingsGrid.Children.Add(button);
+        }
+    }
+
+    private void RefreshBindingsUi()
+    {
+        for (int i = 0; i < _bindSlots.Length; i++)
+        {
+            var button = _bindSlots[i];
+            if (button is null)
+            {
+                continue;
+            }
+
+            if (i == _captureSlot)
+            {
+                button.Content = Loc.T("BindPressKey");
+                button.ToolTip = Loc.T("BindCaptureEsc");
+            }
+            else
+            {
+                string token = i < _bindings.Count ? _bindings[i] : string.Empty;
+                button.Content = DescribeBinding(token);
+                button.ToolTip = Loc.T("BindClear");
+            }
+        }
+    }
+
+    private void OnBindSlotClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: int index })
+        {
+            return;
+        }
+
+        _captureSlot = index;
+        RefreshBindingsUi();
+    }
+
+    /// <summary>ПКМ по слоту, когда он не в режиме захвата, очищает привязку.</summary>
+    private void OnBindSlotClear(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Button { Tag: int index })
+        {
+            return;
+        }
+
+        e.Handled = true;
+        EnsureBindingsSize();
+        _bindings[index] = string.Empty;
+        _captureSlot = -1;
+        RefreshBindingsUi();
+    }
+
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+
+        if (_captureSlot < 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (e.Key == Key.Escape)
+        {
+            _captureSlot = -1;
+            RefreshBindingsUi();
+            return;
+        }
+
+        // Alt приходит как Key.System — настоящая клавиша лежит в SystemKey
+        Key key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.None)
+        {
+            return;
+        }
+
+        SetBinding(_captureSlot, Inputs.KeyToken(key));
+        _captureSlot = -1;
+        RefreshBindingsUi();
+    }
+
+    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseDown(e);
+
+        if (_captureSlot < 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        string? token = e.ChangedButton switch
+        {
+            MouseButton.Left => Inputs.MouseLeft,
+            MouseButton.Right => Inputs.MouseRight,
+            MouseButton.Middle => Inputs.MouseMiddle,
+            MouseButton.XButton1 => Inputs.MouseX1,
+            MouseButton.XButton2 => Inputs.MouseX2,
+            _ => null
+        };
+
+        if (token is null)
+        {
+            return;
+        }
+
+        SetBinding(_captureSlot, token);
+        _captureSlot = -1;
+        RefreshBindingsUi();
+    }
+
+    private void SetBinding(int slot, string token)
+    {
+        EnsureBindingsSize();
+
+        // один и тот же ввод не должен «нажимать» дважды — освобождаем прошлый слот
+        int existing = _bindings.FindIndex(t => string.Equals(t, token, StringComparison.OrdinalIgnoreCase));
+        if (existing >= 0)
+        {
+            _bindings[existing] = string.Empty;
+        }
+
+        if (slot >= 0 && slot < _bindings.Count)
+        {
+            _bindings[slot] = token;
+        }
+    }
+
+    private void EnsureBindingsSize()
+    {
+        while (_bindings.Count < Inputs.MaxSlots)
+        {
+            _bindings.Add(string.Empty);
+        }
+    }
+
+    private static string DescribeBinding(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return Loc.T("BindSlotEmpty");
+        }
+
+        switch (token)
+        {
+            case Inputs.MouseLeft:
+                return Loc.T("BindMouseLeft");
+            case Inputs.MouseRight:
+                return Loc.T("BindMouseRight");
+            case Inputs.MouseMiddle:
+                return Loc.T("BindMouseMiddle");
+            case Inputs.MouseX1:
+                return Loc.T("BindMouseX1");
+            case Inputs.MouseX2:
+                return Loc.T("BindMouseX2");
+        }
+
+        return Inputs.TryParseKey(token, out Key key) ? DescribeKey(key) : token;
+    }
+
+    private static string DescribeKey(Key key)
+    {
+        switch (key)
+        {
+            case >= Key.A and <= Key.Z:
+                return key.ToString();
+            case >= Key.D0 and <= Key.D9:
+                return ((int)(key - Key.D0)).ToString(CultureInfo.InvariantCulture);
+            case >= Key.NumPad0 and <= Key.NumPad9:
+                return "Num " + ((int)(key - Key.NumPad0)).ToString(CultureInfo.InvariantCulture);
+            case >= Key.F1 and <= Key.F24:
+                return key.ToString();
+            case Key.LeftCtrl or Key.RightCtrl:
+                return Loc.T("BindKeyCtrl");
+            case Key.LeftAlt or Key.RightAlt:
+                return Loc.T("BindKeyAlt");
+            case Key.LeftShift or Key.RightShift:
+                return Loc.T("BindKeyShift");
+            case Key.LWin or Key.RWin:
+                return Loc.T("BindKeyWin");
+            case Key.Space:
+                return Loc.T("BindKeySpace");
+            case Key.Enter:
+                return Loc.T("BindKeyEnter");
+            case Key.Tab:
+                return Loc.T("BindKeyTab");
+            case Key.Escape:
+                return Loc.T("BindKeyEscape");
+            case Key.Back:
+                return Loc.T("BindKeyBack");
+            case Key.Delete:
+                return Loc.T("BindKeyDelete");
+            case Key.Insert:
+                return Loc.T("BindKeyInsert");
+            case Key.Home:
+                return Loc.T("BindKeyHome");
+            case Key.End:
+                return Loc.T("BindKeyEnd");
+            case Key.PageUp:
+                return Loc.T("BindKeyPageUp");
+            case Key.PageDown:
+                return Loc.T("BindKeyPageDown");
+            case Key.Up:
+                return Loc.T("BindKeyUp");
+            case Key.Down:
+                return Loc.T("BindKeyDown");
+            case Key.Left:
+                return Loc.T("BindKeyLeft");
+            case Key.Right:
+                return Loc.T("BindKeyRight");
+            case Key.CapsLock:
+                return Loc.T("BindKeyCapsLock");
+            case Key.NumLock:
+                return Loc.T("BindKeyNumLock");
+            case Key.Scroll:
+                return Loc.T("BindKeyScrollLock");
+            case Key.PrintScreen:
+                return Loc.T("BindKeyPrintScreen");
+            case Key.Pause:
+                return Loc.T("BindKeyPause");
+            case Key.Apps:
+                return Loc.T("BindKeyMenu");
+            case Key.Multiply:
+                return Loc.T("BindKeyNumPadMultiply");
+            case Key.Add:
+                return Loc.T("BindKeyNumPadAdd");
+            case Key.Subtract:
+                return Loc.T("BindKeyNumPadSubtract");
+            case Key.Decimal:
+                return Loc.T("BindKeyNumPadDecimal");
+            case Key.Divide:
+                return Loc.T("BindKeyNumPadDivide");
+            default:
+                return key.ToString();
         }
     }
 

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -44,6 +46,17 @@ public enum ClickMode
     Toggle
 }
 
+/// <summary>
+/// Набор картинок («пресет»): своё название и своя пара 1.png / 2.png.
+/// Пустое имя означает «имя по умолчанию» — оно подставляется на языке интерфейса.
+/// </summary>
+public sealed class ImagePreset
+{
+    public string Name { get; set; } = "";
+    public string IdleImagePath { get; set; } = "";
+    public string ClickImagePath { get; set; } = "";
+}
+
 public sealed class AppSettings
 {
     public string IdleImagePath { get; set; } = "";
@@ -83,7 +96,38 @@ public sealed class AppSettings
     public string Language { get; set; } = "";
     public bool TutorialSeen { get; set; }
 
-    public AppSettings Clone() => (AppSettings)MemberwiseClone();
+    /// <summary>Свои привязки: до 10 токенов вида <c>MouseLeft</c> / <c>Key.Space</c>. Пусто — слот свободен.</summary>
+    public List<string> InputBindings { get; set; } = new() { Inputs.MouseLeft };
+
+    /// <summary>Реагировать на любое нажатие мыши или клавиатуры, игнорируя список привязок.</summary>
+    public bool ReactToAllInputs { get; set; }
+
+    /// <summary>Наборы картинок («пресеты»): у каждого своё имя и пара 1.png / 2.png.</summary>
+    public List<ImagePreset> Presets { get; set; } = new();
+
+    /// <summary>Индекс активного пресета в <see cref="Presets"/>.</summary>
+    public int ActivePreset { get; set; }
+
+    public AppSettings Clone()
+    {
+        var copy = (AppSettings)MemberwiseClone();
+        // MemberwiseClone копирует ссылку на список — делаем отдельную копию,
+        // иначе правки в предпросмотре настроек меняли бы сохранённые значения
+        copy.InputBindings = InputBindings is null ? new List<string>() : new List<string>(InputBindings);
+
+        copy.Presets = new List<ImagePreset>();
+        foreach (ImagePreset preset in Presets ?? new List<ImagePreset>())
+        {
+            copy.Presets.Add(new ImagePreset
+            {
+                Name = preset?.Name ?? "",
+                IdleImagePath = preset?.IdleImagePath ?? "",
+                ClickImagePath = preset?.ClickImagePath ?? ""
+            });
+        }
+
+        return copy;
+    }
 
     public void Normalize()
     {
@@ -113,6 +157,72 @@ public sealed class AppSettings
         }
 
         Language = Loc.Canonical(Language);
+
+        // привязки: не больше 10 слотов, без пустых и повторяющихся токенов,
+        // но позиции слотов сохраняем (пустая строка = свободный слот)
+        if (InputBindings is null)
+        {
+            InputBindings = new List<string> { Inputs.MouseLeft };
+        }
+
+        if (InputBindings.Count > Inputs.MaxSlots)
+        {
+            InputBindings = InputBindings.Take(Inputs.MaxSlots).ToList();
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < InputBindings.Count; i++)
+        {
+            string token = InputBindings[i]?.Trim() ?? string.Empty;
+            if (token.Length == 0 || !seen.Add(token))
+            {
+                InputBindings[i] = string.Empty;
+            }
+            else
+            {
+                InputBindings[i] = token;
+            }
+        }
+
+        // пресеты: как минимум один, активный индекс всегда валиден
+        if (Presets is null)
+        {
+            Presets = new List<ImagePreset>();
+        }
+
+        Presets = Presets.Where(p => p is not null).ToList();
+        foreach (ImagePreset preset in Presets)
+        {
+            preset.Name = preset.Name?.Trim() ?? string.Empty;
+            preset.IdleImagePath ??= string.Empty;
+            preset.ClickImagePath ??= string.Empty;
+        }
+
+        if (Presets.Count == 0)
+        {
+            // первый запуск или старый settings.json без пресетов:
+            // первый пресет — то, что настроено сейчас, второй — дополнительный набор
+            Presets.Add(new ImagePreset
+            {
+                IdleImagePath = IdleImagePath,
+                ClickImagePath = ClickImagePath
+            });
+            Presets.Add(new ImagePreset
+            {
+                IdleImagePath = SettingsStore.DefaultPreset2Idle,
+                ClickImagePath = SettingsStore.DefaultPreset2Click
+            });
+            ActivePreset = 0;
+        }
+
+        if (ActivePreset < 0 || ActivePreset >= Presets.Count)
+        {
+            ActivePreset = 0;
+        }
+
+        // активный пресет всегда описывает то, что сейчас на экране
+        Presets[ActivePreset].IdleImagePath = IdleImagePath;
+        Presets[ActivePreset].ClickImagePath = ClickImagePath;
     }
 }
 
@@ -226,6 +336,8 @@ public static class SettingsStore
         Directory.CreateDirectory(AssetsDir);
         Extract("pack://application:,,,/Assets/1.png", Path.Combine(AssetsDir, "1.png"));
         Extract("pack://application:,,,/Assets/2.png", Path.Combine(AssetsDir, "2.png"));
+        Extract("pack://application:,,,/Assets/p2_1.png", Path.Combine(AssetsDir, "p2_1.png"));
+        Extract("pack://application:,,,/Assets/p2_2.png", Path.Combine(AssetsDir, "p2_2.png"));
 
         // иконку обновляем, если она отличается от вшитой: иначе после замены
         // иконки в новой версии трей продолжал бы показывать старую
@@ -234,6 +346,8 @@ public static class SettingsStore
 
     public static string DefaultIdleImage => Path.Combine(AssetsDir, "1.png");
     public static string DefaultClickImage => Path.Combine(AssetsDir, "2.png");
+    public static string DefaultPreset2Idle => Path.Combine(AssetsDir, "p2_1.png");
+    public static string DefaultPreset2Click => Path.Combine(AssetsDir, "p2_2.png");
     public static string DefaultIcon => Path.Combine(AssetsDir, "MimiTap.ico");
 
     private static void Extract(string packUri, string target, bool replaceIfDifferent = false)

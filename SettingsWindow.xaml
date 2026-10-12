@@ -127,6 +127,16 @@
 
                             <Border Style="{StaticResource Card}">
                                 <StackPanel>
+                                    <TextBlock Style="{StaticResource CardTitle}" Text="{loc:Tr PresetTitle}" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,10" Text="{loc:Tr PresetHint}" />
+                                    <StackPanel x:Name="PresetsList" />
+                                    <Button x:Name="AddPresetButton" Content="{loc:Tr PresetAdd}" HorizontalAlignment="Left"
+                                            Margin="0,10,0,0" Click="AddPreset" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
                                     <TextBlock Style="{StaticResource CardTitle}" Text="{loc:Tr CardLanguageTitle}" />
                                     <ComboBox x:Name="LanguageBox" Width="250" HorizontalAlignment="Left" SelectionChanged="OnLanguageChanged">
                                         <ComboBoxItem Content="{loc:Tr LangAuto}" Tag="" />
@@ -304,6 +314,22 @@
                                     <CheckBox x:Name="NoActivateBox" Content="{loc:Tr CardClickNoActivate}" IsChecked="True" />
                                     <CheckBox x:Name="AlwaysOnTopBox" Content="{loc:Tr CardClickAlwaysOnTop}" IsChecked="True" />
                                     <CheckBox x:Name="StartVisibleBox" Content="{loc:Tr CardClickStartVisible}" IsChecked="True" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CardTitle}" Text="{loc:Tr BindTitle}" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,10" Text="{loc:Tr BindHint}" />
+
+                                    <UniformGrid x:Name="BindingsGrid" Columns="2" />
+
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" Text="{loc:Tr BindClear}" />
+
+                                    <Border Height="1" Background="{StaticResource LineBrush}" Margin="0,12,0,10" />
+
+                                    <CheckBox x:Name="ReactAllBox" Style="{StaticResource SwitchCheckBox}" Content="{loc:Tr BindReactAll}" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Text="{loc:Tr BindReactAllHint}" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>

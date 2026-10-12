@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -52,6 +54,7 @@ public sealed class AppController : IDisposable
 {
     private readonly SoundService _sound = new();
     private readonly GlobalMouseHook _mouseHook = new();
+    private readonly GlobalKeyboardHook _keyboardHook = new();
     private readonly Dispatcher _dispatcher;
     private readonly int _hotkeyId = 0xA17;
 
@@ -77,6 +80,9 @@ public sealed class AppController : IDisposable
     private int _dragY;
     private readonly StringBuilder _diag = new();
     private readonly bool _diagnostics;
+
+    // вводы, которые сейчас зажаты и «нажимают» кнопку за Мими (для режима «держать»)
+    private readonly HashSet<string> _heldTriggers = new(StringComparer.OrdinalIgnoreCase);
 
     public AppController()
     {
@@ -130,11 +136,14 @@ public sealed class AppController : IDisposable
         _overlay = new OverlayWindow(Settings, _sound);
         _overlay.SettingsRequested += ShowSettings;
         _overlay.Moved += OnOverlayMoved;
+        _overlay.InputStillHeld = AnyTriggerStillHeld;
         _overlay.Loaded += (_, _) => _overlay.ApplySettings(Settings);
         _overlay.Show();
 
         _mouseHook.OnEvent += OnMouseEvent;
         _mouseHook.Enabled = Settings.MouseHookEnabled;
+        _keyboardHook.OnEvent += OnKeyEvent;
+        _keyboardHook.Enabled = NeedsKeyboardHook(Settings);
 
         CreateTray();
         RegisterHotKey(Settings);
@@ -188,6 +197,7 @@ public sealed class AppController : IDisposable
 
         _overlay?.ApplySettings(next);
         _mouseHook.Enabled = next.MouseHookEnabled;
+        _keyboardHook.Enabled = NeedsKeyboardHook(next);
         RegisterHotKey(next);
 
         _hiddenBySettings = !next.StartVisible;
@@ -218,8 +228,21 @@ public sealed class AppController : IDisposable
             Stretch = nameof(StretchMode.Uniform),
             HitTestMode = "Screen",
             ClickBehavior = nameof(ClickMode.Hold),
-            SoundMaxSeconds = 1.0
+            SoundMaxSeconds = 1.0,
+            ActivePreset = 0
         };
+
+        // по умолчанию два набора: основные кадры и дополнительный пресет
+        settings.Presets.Add(new ImagePreset
+        {
+            IdleImagePath = SettingsStore.DefaultIdleImage,
+            ClickImagePath = SettingsStore.DefaultClickImage
+        });
+        settings.Presets.Add(new ImagePreset
+        {
+            IdleImagePath = SettingsStore.DefaultPreset2Idle,
+            ClickImagePath = SettingsStore.DefaultPreset2Click
+        });
 
         settings.Normalize();
         return settings;
@@ -345,111 +368,316 @@ public sealed class AppController : IDisposable
         switch (kind)
         {
             case MouseHookEvent.LeftDown:
-            {
-                _pressX = x;
-                _pressY = y;
-                _pressMoved = false;
-                _pressOnPicture = _overlay.HitTestZone(x, y);
-
-                // в режиме «весь экран» клик засчитывается где угодно, но пока открыто
-                // окно настроек — только по картинке, иначе каждый клик по ползункам
-                // переключал бы картинку и играл звук
-                bool wholeScreen = _overlay.HitTestMode == "Screen" && !SettingsWindow.IsVisible;
-                _pressArmed = wholeScreen || _overlay.HitTest(x, y);
-                _pressTime = Environment.TickCount64;
-                Log($"down ({x},{y}) armed={_pressArmed} onPicture={_pressOnPicture}");
-
-                if (_pressArmed)
-                {
-                    // 2.png показывается сразу на нажатии и держится, пока кнопка зажата
-                    _overlay.SetPressed(true);
-                }
-
-                if (_pressOnPicture && Settings.DragToMove)
-                {
-                    _dragging = true;
-                    _dragX = x;
-                    _dragY = y;
-                    _dispatcher.BeginInvoke(() => _overlay?.BeginDrag(x, y));
-                }
-
+                HandleLeftDown(x, y);
                 break;
-            }
 
             case MouseHookEvent.Move:
-                if (_pressArmed && !_pressMoved)
-                {
-                    int dx = x - _pressX;
-                    int dy = y - _pressY;
-                    if (dx * dx + dy * dy > ClickMoveThreshold * ClickMoveThreshold)
-                    {
-                        _pressMoved = true;
-                    }
-                }
-
-                if (_dragging)
-                {
-                    // события мыши приходят с частотой до 1000 Гц; очередь диспетчера
-                    // переполняется, поэтому запоминаем последнюю позицию и
-                    // применяем её раз в 16 мс
-                    _dragX = x;
-                    _dragY = y;
-                    if (!_dragTimer.IsEnabled)
-                    {
-                        _dragTimer.Start();
-                    }
-                }
-
+                HandleMove(x, y);
                 break;
 
             case MouseHookEvent.LeftUp:
-            {
-                if (!_pressArmed && !_dragging)
-                {
-                    break;
-                }
-
-                bool armed = _pressArmed;
-                _pressArmed = false;
-                _dragging = false;
-                _dragTimer.Stop();
-                long held = Environment.TickCount64 - _pressTime;
-                Log($"up ({x},{y}) armed={armed} moved={_pressMoved} held={held}ms");
-                _dispatcher.BeginInvoke(() =>
-                {
-                    if (_overlay is null)
-                    {
-                        return;
-                    }
-
-                    _overlay.SetPressed(false);
-                    bool pictureMoved = _overlay.EndDrag();
-                    if (pictureMoved || !armed || _pressMoved)
-                    {
-                        return;
-                    }
-
-                    // режимы «переключить» и «показывать N мс» реагируют на отпускание
-                    if (_overlay.IsHoldMode)
-                    {
-                        return;
-                    }
-
-                    Log("click -> trigger");
-                    _overlay.TriggerClick();
-                });
+                HandleLeftUp(x, y);
                 break;
-            }
 
             case MouseHookEvent.RightDown:
-                if (_overlay.HitTestZone(x, y))
+                // ПКМ по картинке открывает настройки, но если ПКМ назначена
+                // привязкой — она «нажимает» кнопку, а не открывает окно
+                if (IsArmed(Inputs.MouseRight))
+                {
+                    OnTriggerDown(Inputs.MouseRight);
+                }
+                else if (_overlay.HitTestZone(x, y))
                 {
                     ShowSettings();
                 }
 
                 break;
+
+            case MouseHookEvent.RightUp:
+                OnTriggerUp(Inputs.MouseRight);
+                break;
+
+            case MouseHookEvent.MiddleDown:
+                OnTriggerDown(Inputs.MouseMiddle);
+                break;
+
+            case MouseHookEvent.MiddleUp:
+                OnTriggerUp(Inputs.MouseMiddle);
+                break;
+
+            case MouseHookEvent.X1Down:
+                OnTriggerDown(Inputs.MouseX1);
+                break;
+
+            case MouseHookEvent.X1Up:
+                OnTriggerUp(Inputs.MouseX1);
+                break;
+
+            case MouseHookEvent.X2Down:
+                OnTriggerDown(Inputs.MouseX2);
+                break;
+
+            case MouseHookEvent.X2Up:
+                OnTriggerUp(Inputs.MouseX2);
+                break;
         }
     }
+
+    private void HandleLeftDown(int x, int y)
+    {
+        if (_overlay is null)
+        {
+            return;
+        }
+
+        _pressX = x;
+        _pressY = y;
+        _pressMoved = false;
+        _pressOnPicture = _overlay.HitTestZone(x, y);
+
+        // в режиме «весь экран» клик засчитывается где угодно, но пока открыто
+        // окно настроек — только по картинке, иначе каждый клик по ползункам
+        // переключал бы картинку и играл звук
+        bool wholeScreen = _overlay.HitTestMode == "Screen";
+        bool locationOk = wholeScreen
+            ? !SettingsWindow.IsVisible || _pressOnPicture
+            : _overlay.HitTest(x, y);
+
+        _pressArmed = locationOk && IsArmed(Inputs.MouseLeft);
+        _pressTime = Environment.TickCount64;
+        Log($"down ({x},{y}) armed={_pressArmed} onPicture={_pressOnPicture}");
+
+        PressTrigger(Inputs.MouseLeft, _pressArmed);
+
+        if (_pressOnPicture && Settings.DragToMove && !IsScreenCaptureForeground())
+        {
+            _dragging = true;
+            _dragX = x;
+            _dragY = y;
+            _dispatcher.BeginInvoke(() => _overlay?.BeginDrag(x, y));
+        }
+    }
+
+    private void HandleMove(int x, int y)
+    {
+        if (_pressArmed && !_pressMoved)
+        {
+            int dx = x - _pressX;
+            int dy = y - _pressY;
+            if (dx * dx + dy * dy > ClickMoveThreshold * ClickMoveThreshold)
+            {
+                _pressMoved = true;
+            }
+        }
+
+        if (_dragging)
+        {
+            // события мыши приходят с частотой до 1000 Гц; очередь диспетчера
+            // переполняется, поэтому запоминаем последнюю позицию и
+            // применяем её раз в 16 мс
+            _dragX = x;
+            _dragY = y;
+            if (!_dragTimer.IsEnabled)
+            {
+                _dragTimer.Start();
+            }
+        }
+    }
+
+    private void HandleLeftUp(int x, int y)
+    {
+        if (!_pressArmed && !_dragging)
+        {
+            return;
+        }
+
+        bool armed = _pressArmed;
+        _pressArmed = false;
+        _dragging = false;
+        _dragTimer.Stop();
+        long held = Environment.TickCount64 - _pressTime;
+        Log($"up ({x},{y}) armed={armed} moved={_pressMoved} held={held}ms");
+
+        _dispatcher.BeginInvoke(() =>
+        {
+            if (_overlay is null)
+            {
+                return;
+            }
+
+            ReleaseHeld(Inputs.MouseLeft);
+            bool pictureMoved = _overlay.EndDrag();
+            if (pictureMoved || !armed || _pressMoved)
+            {
+                return;
+            }
+
+            // режимы «переключить» и «показывать N мс» реагируют на отпускание
+            if (_overlay.IsHoldMode)
+            {
+                return;
+            }
+
+            Log("click -> trigger");
+            _overlay.TriggerClick();
+        });
+    }
+
+    /// <summary>Нажат ли этот ввод с точки зрения настроек (или включён «реагировать на всё»).</summary>
+    private bool IsArmed(string token) =>
+        Settings.ReactToAllInputs
+        || Settings.InputBindings.Any(t => string.Equals(t, token, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Открыт ли сейчас инструмент скриншота («Ножницы», Snip &amp; Sketch). Если да, нажатие
+    /// ЛКМ — это выделение области снимка, а не перетаскивание Мими: иначе выделение
+    /// утаскивает картинку за собой, и Мими «пропадает» (а центрирование возвращает).
+    /// </summary>
+    private static bool IsScreenCaptureForeground()
+    {
+        IntPtr hwnd = NativeMethods.GetForegroundWindow();
+        if (hwnd == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        // у упакованных (UWP) приложений окно принадлежит ApplicationFrameHost,
+        // а настоящий процесс — в дочернем окне
+        return IsCaptureProcess(hwnd) || IsCaptureProcess(NativeMethods.GetWindow(hwnd, NativeMethods.GW_CHILD));
+    }
+
+    private static bool IsCaptureProcess(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        _ = NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+        if (pid == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById((int)pid);
+            string name = process.ProcessName;
+            return name.Contains("SnippingTool", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("ScreenSketch", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("SnipAndSketch", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Мими нажимает кнопку на вводе из привязок; в режиме «держать» — пока ввод зажат.</summary>
+    private void PressTrigger(string token, bool armed)
+    {
+        if (!armed || _overlay is null)
+        {
+            return;
+        }
+
+        _heldTriggers.Add(token);
+        if (_overlay.IsHoldMode)
+        {
+            // 2.png показывается сразу на нажатии и держится, пока ввод зажат
+            _overlay.SetPressed(true);
+        }
+    }
+
+    private void OnTriggerDown(string token)
+    {
+        // пока открыто окно настроек, мышь не трогаем: пользователь настраивает,
+        // а не играет (клавиатуру отсекает OnKeyEvent)
+        if (SettingsWindow.IsVisible && !Inputs.IsKeyToken(token))
+        {
+            return;
+        }
+
+        PressTrigger(token, IsArmed(token));
+    }
+
+    private void OnTriggerUp(string token)
+    {
+        bool wasHeld = _heldTriggers.Contains(token);
+        ReleaseHeld(token);
+        if (wasHeld && _overlay is { IsHoldMode: false })
+        {
+            // «показывать N мс» и «переключить» срабатывают на отпускание
+            _overlay.TriggerClick();
+        }
+    }
+
+    /// <summary>Убирает ввод из зажатых; в режиме «держать» возвращает 1.png, если ничего не осталось.</summary>
+    private void ReleaseHeld(string token)
+    {
+        if (!_heldTriggers.Remove(token) || _overlay is null)
+        {
+            return;
+        }
+
+        if (_overlay.IsHoldMode && _heldTriggers.Count == 0)
+        {
+            _overlay.SetPressed(false);
+        }
+    }
+
+    private void OnKeyEvent(bool down, int vk)
+    {
+        if (_overlay is null || !_overlay.IsVisible)
+        {
+            return;
+        }
+
+        // пока открыто окно настроек, клавиатура набирает текст в полях — не мешаем
+        if (SettingsWindow.IsActive)
+        {
+            return;
+        }
+
+        var key = KeyInterop.KeyFromVirtualKey(vk);
+        if (key == Key.None)
+        {
+            return;
+        }
+
+        if (down)
+        {
+            OnTriggerDown(Inputs.KeyToken(key));
+        }
+        else
+        {
+            OnTriggerUp(Inputs.KeyToken(key));
+        }
+    }
+
+    /// <summary>
+    /// Страховка для оверлея: если все зажатые вводы физически отпущены, значит
+    /// событие отпускания потерялось и 2.png пора вернуть на 1.png.
+    /// </summary>
+    private bool AnyTriggerStillHeld()
+    {
+        if (_heldTriggers.Count == 0)
+        {
+            return false;
+        }
+
+        if (_heldTriggers.Any(Inputs.IsDown))
+        {
+            return true;
+        }
+
+        _heldTriggers.Clear();
+        return false;
+    }
+
+    private static bool NeedsKeyboardHook(AppSettings settings) =>
+        settings.MouseHookEnabled
+        && (settings.ReactToAllInputs || settings.InputBindings.Any(Inputs.IsKeyToken));
 
     private void ApplyDrag()
     {
@@ -696,6 +924,9 @@ public sealed class AppController : IDisposable
         _mouseHook.OnEvent -= OnMouseEvent;
         _mouseHook.Enabled = false;
         _mouseHook.Dispose();
+        _keyboardHook.OnEvent -= OnKeyEvent;
+        _keyboardHook.Enabled = false;
+        _keyboardHook.Dispose();
         _sound.Dispose();
         if (_hotkeyRegistered && _hotkeyHandle != IntPtr.Zero)
         {

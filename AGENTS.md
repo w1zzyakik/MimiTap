@@ -5,9 +5,12 @@
 ## Что это
 
 **MimiTap** — Windows-приложение (WPF, .NET 10): прозрачный оверлей-персонаж поверх всех окон.
-В покое показывается `1.png` (Мими замахивается), пока зажата левая кнопка мыши — `2.png`
-(Мими нажала). Персонаж — **Мими**, OC художницы **Typh**. Помимо приложения в репозитории есть
-свой WPF-установщик и лендинг на GitHub Pages.
+В покое показывается `1.png` (Мими замахивается), пока зажат «взведённый» ввод — `2.png`
+(Мими нажала); по умолчанию это левая кнопка мыши, но в настройках можно задать до 10 своих
+привязок (клавиши и кнопки мыши) или включить «реагировать на все нажатия». Кадров может быть
+несколько наборов — **пресеты** (в поставке два: основной и дополнительный). Персонаж — **Мими**,
+OC художницы **Typh**. Помимо приложения в репозитории есть свой WPF-установщик и лендинг
+на GitHub Pages.
 
 Репозиторий публичный: <https://github.com/w1zzyakik/MimiTap>
 
@@ -49,12 +52,13 @@
 | `SettingsWindow.xaml(.cs)` | окно настроек (закрывается в трей) |
 | `AppSettings.cs` | модель настроек + `SettingsStore`: JSON (UTF-8 BOM), распаковка встроенных ресурсов |
 | `SoundService.cs` | звук нажатия (обрезка до 1 с), автозапуск с Windows |
-| `NativeMethods.cs` | Win32: ex-стили окна, глобальный хук мыши, хоткеи |
+| `NativeMethods.cs` | Win32: ex-стили окна, глобальные хуки мыши и клавиатуры, хоткеи |
+| `Inputs.cs` | привязки ввода: токены `MouseLeft` / `Key.Space`, 10 слотов, `IsDown`/`VirtualKey` |
 | `SelfTest.cs` | режим `--selftest` |
 | `Localization\Localization.cs` | движок локализации `Loc` (`T`/`Format`/`SetLanguage`) + разметка `{loc:Tr Ключ}` |
 | `Localization\Strings\*.json` | строки интерфейса по языкам: `ru`, `en`, `es`, `pt-BR`, `uk`, `pl` |
 | `TutorialWindow.xaml(.cs)` | мини-туториал (выноски вокруг оверлея) при первом запуске |
-| `Assets\1.png`, `Assets\2.png`, `Assets\MimiTap.ico` | встроенные ресурсы (**канонические**) |
+| `Assets\1.png`, `Assets\2.png`, `Assets\p2_1.png`, `Assets\p2_2.png`, `Assets\MimiTap.ico` | встроенные ресурсы (**канонические**); `p2_*` — второй пресет |
 | `installer\MimiTapSetup\` | отдельный проект установщика (свой `.csproj`) |
 | `docs\` | сайт; публикуется GitHub Pages из ветки `main`, папка `/docs` |
 | `LICENSE` | MIT (код). Арты Мими — исключение, см. ниже |
@@ -104,7 +108,8 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 1. `dotnet build .\MimiTap.csproj -c Release` — сборка без ошибок.
 2. `.\publish\MimiTap.exe --selftest` — прогони, проверь `%AppData%\MimiTap\selftest.log`.
 3. Поведение вручную: прозрачность/Topmost, прохождение кликов насквозь, переключение
-   `1.png ⇄ 2.png` (три режима клика), звук, область срабатывания, перетаскивание, трей, хоткей.
+   `1.png ⇄ 2.png` (три режима клика), звук, область срабатывания, свои привязки (захват
+   по клавише/кнопке мыши, «реагировать на всё»), плавность перетаскивания, трей, хоткей.
 
 ## Соглашения по коду
 
@@ -114,6 +119,10 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 - Ресурсы — только через `pack://application:,,,/Assets/...`.
 - Не добавляй внешние пакеты и не тяни тяжёлые фреймворки.
 - Оверлей обязан остаться: `Topmost`, без перехвата фокуса, с прозрачными для кликов участками.
+- **Пресеты** — это наборы кадров (`ImagePreset` в `AppSettings.cs`). «Живые» картинки
+  оверлея всегда лежат в `IdleImagePath`/`ClickImagePath`; активный пресет синхронизируется
+  с ними в `Normalize()`. Новые кадры добавляй в `Assets\` и в `<Resource>` в `MimiTap.csproj`.
+  Дефолтное имя пресета — пустая строка, в UI показывается локализованный `PresetDefaultName`.
 
 ## Локализация
 
@@ -126,6 +135,10 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 - Установщик переиспользует тот же движок: `Localization.cs` слинкован, JSON встроены
   (`installer\MimiTapSetup\MimiTapSetup.csproj`), язык — по системе, ключи с префиксом `Installer`.
 
+Имена клавиш для своих привязок — ключи `BindKey*` (`BindKeySpace`, `BindKeyEnter`, `BindKeyUp`…),
+кнопки мыши — `BindMouse*`. Их тоже надо держать во всех 6 словарях; переводятся только
+подписи, сами токены (`Key.Space`) в JSON настроек не зависят от языка.
+
 ## Подводные камни (важно)
 
 1. **`installer\` — отдельный проект.** В `MimiTap.csproj` он исключён:
@@ -136,6 +149,12 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 3. **.NET 10 обязателен.** Целевой рантайм — .NET 10 Desktop Runtime; SDK у разработчика — 10.x.
 4. **Арты ≠ MIT.** Код под MIT (`LICENSE`), но `Assets\*.png` и `Assets\MimiTap.ico` —
    работы художницы **Typh** (персонаж Мими). Не перелицензируй их и не удаляй атрибуцию.
+5. **Пропажа оверлея.** Слоёное прозрачное окно может «потерять» картинку после инструментов
+   захвата экрана или смены разрешения/DPI. В `OverlayWindow` на это есть `ReassertSurface()`
+   (хук `WM_DISPLAYCHANGE`/`WM_DPICHANGED`/`WM_DWMCOMPOSITIONCHANGED`/`WM_SETTINGCHANGE`),
+   лёгкий таймер `NudgeSurface()` и кламп позиции в `ClampToVisibleScreen()` — не удаляй.
+   Плюс `AppController.IsScreenCaptureForeground()` не даёт «Ножницам» (Win+Shift+S)
+   перетаскивать Мими при выделении области снимка.
 
 ## Сайт (GitHub Pages)
 
@@ -150,7 +169,7 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 - Идентичность: `Wizzy <211014699+w1zzyakik@users.noreply.github.com>`.
 - Ветка `main`. Сообщения коммитов — на английском, повелительное наклонение, коротко.
 - Релиз: тег `vX.Y.Z` + ассет `dist\MimiTapSetup.exe`.
-  Текущий — `v1.0.0`: <https://github.com/w1zzyakik/MimiTap/releases/tag/v1.0.0>
+  Текущий — `v1.1.0`: <https://github.com/w1zzyakik/MimiTap/releases/tag/v1.1.0>
 
 ## На заметку (не трогать без причины)
 

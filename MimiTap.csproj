@@ -11,14 +11,17 @@
     <RootNamespace>MimiTap</RootNamespace>
     <ApplicationIcon>Assets\MimiTap.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.1.0</Version>
     <Product>MimiTap</Product>
   </PropertyGroup>
 
   <ItemGroup>
     <Resource Include="Assets\1.png" />
     <Resource Include="Assets\2.png" />
+    <Resource Include="Assets\p2_1.png" />
+    <Resource Include="Assets\p2_2.png" />
     <Resource Include="Assets\MimiTap.ico" />
   </ItemGroup>
 

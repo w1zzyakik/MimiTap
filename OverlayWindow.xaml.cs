@@ -17,6 +17,7 @@ public partial class OverlayWindow : Window
     private readonly SoundService _sound;
     private readonly DispatcherTimer _restoreTimer;
     private readonly DispatcherTimer _holdWatch;
+    private readonly DispatcherTimer _surfaceWatch;
 
     private BitmapSource? _idleImage;
     private BitmapSource? _clickImage;
@@ -32,10 +33,16 @@ public partial class OverlayWindow : Window
     private bool _ready;
 
     private bool _dragging;
-    private Point _dragAnchorDip;
+    private int _dragAnchorScreenX;
+    private int _dragAnchorScreenY;
+    private double _dragDpiX = 1.0;
+    private double _dragDpiY = 1.0;
     private double _dragAnchorLeft;
     private double _dragAnchorTop;
     private bool _dragMoved;
+
+    private HwndSource? _hwndSource;
+    private HwndSourceHook? _hwndHook;
 
     public OverlayWindow(AppSettings settings, SoundService sound)
     {
@@ -51,16 +58,35 @@ public partial class OverlayWindow : Window
         _holdWatch.Interval = TimeSpan.FromMilliseconds(250);
         _holdWatch.Tick += (_, _) => WatchHold();
 
+        // редкая страховка от «пропавшей» картинки у слоёного окна (см. ReassertSurface)
+        _surfaceWatch = new DispatcherTimer(DispatcherPriority.Background, Dispatcher);
+        _surfaceWatch.Interval = TimeSpan.FromSeconds(2);
+        _surfaceWatch.Tick += (_, _) => NudgeSurface();
+
         SourceInitialized += OnSourceInitialized;
         Closed += (_, _) =>
         {
             _restoreTimer.Stop();
             _holdWatch.Stop();
+            _surfaceWatch.Stop();
+            if (_hwndSource is not null && _hwndHook is not null)
+            {
+                _hwndSource.RemoveHook(_hwndHook);
+            }
+
+            _hwndSource = null;
+            _hwndHook = null;
         };
     }
 
     public event Action? SettingsRequested;
     public event Action<Rect>? Moved;
+
+    /// <summary>
+    /// Проверка от контроллера: зажат ли ещё хоть один ввод из привязок.
+    /// Нужна как страховка, если событие отпускания потерялось.
+    /// </summary>
+    public Func<bool>? InputStillHeld { get; set; }
 
     public string HitTestMode => _settings.HitTestMode;
 
@@ -68,6 +94,108 @@ public partial class OverlayWindow : Window
     {
         _ready = true;
         ApplyExStyle(_settings.ClickThrough, _settings.NoActivate);
+
+        _hwndSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+        if (_hwndSource is not null)
+        {
+            _hwndHook = WndProc;
+            _hwndSource.AddHook(_hwndHook);
+        }
+
+        _surfaceWatch.Start();
+    }
+
+    /// <summary>Дешёвая перерисовка: только разметка, без повторного применения стилей.</summary>
+    private void NudgeSurface()
+    {
+        if (!_ready || !IsVisible)
+        {
+            return;
+        }
+
+        ClampToVisibleScreen();
+        ImageHost.InvalidateVisual();
+        InvalidateVisual();
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg is NativeMethods.WM_DISPLAYCHANGE
+            or NativeMethods.WM_DPICHANGED
+            or NativeMethods.WM_DWMCOMPOSITIONCHANGED
+            or NativeMethods.WM_SETTINGCHANGE)
+        {
+            ReassertSurface();
+        }
+
+        return IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// Перерисовывает прозрачное окно после смены разрешения/DPI/режима композиции.
+    /// Инструменты захвата экрана (набросок, «Ножницы») иногда «съедают» картинку
+    /// слоёного окна — она пропадает, пока окно не перерисуют; центрирование
+    /// как раз перерисовывало, поэтому Мими «возвращалась». Делаем это сами.
+    /// </summary>
+    public void ReassertSurface()
+    {
+        if (!_ready || !IsVisible)
+        {
+            return;
+        }
+
+        ApplyExStyle(_settings.ClickThrough, _settings.NoActivate);
+        Topmost = _settings.AlwaysOnTop;
+
+        if (!double.IsFinite(Left) || !double.IsFinite(Top))
+        {
+            ApplyPosition(Left, Top);
+        }
+
+        ClampToVisibleScreen();
+        RefreshImage();
+        InvalidateMask();
+        ImageHost.InvalidateVisual();
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Не даёт утащить окно полностью за пределы рабочего стола: хотя бы полоска
+    /// шириной <c>VisibleMargin</c> остаётся на экране.
+    /// </summary>
+    private void ClampToVisibleScreen()
+    {
+        double vx = SystemParameters.VirtualScreenLeft;
+        double vy = SystemParameters.VirtualScreenTop;
+        double vw = SystemParameters.VirtualScreenWidth;
+        double vh = SystemParameters.VirtualScreenHeight;
+
+        if (vw < 1 || vh < 1 || !double.IsFinite(Left) || !double.IsFinite(Top))
+        {
+            return;
+        }
+
+        const double VisibleMargin = 40;
+        double minLeft = vx - Width + VisibleMargin;
+        double maxLeft = vx + vw - VisibleMargin;
+        double minTop = vy - Height + VisibleMargin;
+        double maxTop = vy + vh - VisibleMargin;
+
+        double clampedLeft = Math.Clamp(Left, minLeft, maxLeft);
+        double clampedTop = Math.Clamp(Top, minTop, maxTop);
+
+        if (clampedLeft == Left && clampedTop == Top)
+        {
+            return;
+        }
+
+        Left = clampedLeft;
+        Top = clampedTop;
+
+        // запоминаем исправленную позицию, чтобы она не «потерялась» снова
+        _settings.PositionX = clampedLeft;
+        _settings.PositionY = clampedTop;
+        _settings.HasSavedPosition = true;
     }
 
     public void ApplySettings(AppSettings settings)
@@ -122,6 +250,7 @@ public partial class OverlayWindow : Window
         {
             Left = savedX;
             Top = savedY;
+            ClampToVisibleScreen();
             return;
         }
 
@@ -145,6 +274,8 @@ public partial class OverlayWindow : Window
                 Top = double.IsFinite(fallbackY) ? fallbackY : screen.Top + 40;
                 break;
         }
+
+        ClampToVisibleScreen();
     }
 
     private void PlaceByAnchor(string anchor, Rect screen, out double x, out double y)
@@ -406,7 +537,8 @@ public partial class OverlayWindow : Window
             return;
         }
 
-        if (!NativeMethods.IsLeftButtonDown())
+        bool stillHeld = InputStillHeld?.Invoke() ?? NativeMethods.IsLeftButtonDown();
+        if (!stillHeld)
         {
             SetPressed(false);
             _holdWatch.Stop();
@@ -656,11 +788,15 @@ public partial class OverlayWindow : Window
             return;
         }
 
+        var dpi = VisualTreeHelper.GetDpi(this);
         _dragging = true;
         _dragMoved = false;
         _dragAnchorLeft = Left;
         _dragAnchorTop = Top;
-        _dragAnchorDip = PointFromScreen(new Point(screenX, screenY));
+        _dragAnchorScreenX = screenX;
+        _dragAnchorScreenY = screenY;
+        _dragDpiX = dpi.DpiScaleX > 0.1 ? dpi.DpiScaleX : 1.0;
+        _dragDpiY = dpi.DpiScaleY > 0.1 ? dpi.DpiScaleY : 1.0;
     }
 
     private void ScreenPoint(MouseButtonEventArgs e, out int x, out int y)
@@ -677,9 +813,10 @@ public partial class OverlayWindow : Window
             return;
         }
 
-        Point current = PointFromScreen(new Point(screenX, screenY));
-        double dx = current.X - _dragAnchorDip.X;
-        double dy = current.Y - _dragAnchorDip.Y;
+        // дельту считаем в физических пикселях от якоря, снятого в момент нажатия:
+        // PointFromScreen зависел бы от текущей позиции окна и давал бы лаг
+        double dx = (screenX - _dragAnchorScreenX) / _dragDpiX;
+        double dy = (screenY - _dragAnchorScreenY) / _dragDpiY;
 
         if (!_dragMoved && Math.Abs(dx) < 4 && Math.Abs(dy) < 4)
         {
@@ -689,6 +826,7 @@ public partial class OverlayWindow : Window
         _dragMoved = true;
         Left = _dragAnchorLeft + dx;
         Top = _dragAnchorTop + dy;
+        ClampToVisibleScreen();
     }
 
     public bool EndDrag()
@@ -714,6 +852,14 @@ public partial class OverlayWindow : Window
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
+
+        // при включённом глобальном хуке нажатия обрабатывает контроллер,
+        // иначе клик учитывался бы дважды (окно получает те же события)
+        if (_settings.MouseHookEnabled)
+        {
+            return;
+        }
+
         ScreenPoint(e, out int sx, out int sy);
         BeginDrag(sx, sy);
 
@@ -726,6 +872,11 @@ public partial class OverlayWindow : Window
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+
+        if (_settings.MouseHookEnabled)
+        {
+            return;
+        }
 
         if (e.LeftButton != MouseButtonState.Pressed)
         {
@@ -741,6 +892,12 @@ public partial class OverlayWindow : Window
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
+
+        if (_settings.MouseHookEnabled)
+        {
+            return;
+        }
+
         ReleaseMouseCapture();
 
         bool hold = IsHoldMode;
@@ -763,7 +920,12 @@ public partial class OverlayWindow : Window
     protected override void OnMouseRightButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseRightButtonUp(e);
-        SettingsRequested?.Invoke();
+
+        if (!_settings.MouseHookEnabled)
+        {
+            SettingsRequested?.Invoke();
+        }
+
         e.Handled = true;
     }
 
