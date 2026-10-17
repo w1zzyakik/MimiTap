@@ -96,6 +96,15 @@ public sealed class AppSettings
     public string Language { get; set; } = "";
     public bool TutorialSeen { get; set; }
 
+    /// <summary>Акцентный цвет интерфейса («#RRGGBB»); пусто — значение по умолчанию.</summary>
+    public string AccentColor { get; set; } = "";
+
+    /// <summary>Основной цвет интерфейса — фон и панели; пусто — по умолчанию.</summary>
+    public string BaseColor { get; set; } = "";
+
+    /// <summary>Цвет текста интерфейса; пусто — по умолчанию.</summary>
+    public string TextColor { get; set; } = "";
+
     /// <summary>Свои привязки: до 10 токенов вида <c>MouseLeft</c> / <c>Key.Space</c>. Пусто — слот свободен.</summary>
     public List<string> InputBindings { get; set; } = new() { Inputs.MouseLeft };
 
@@ -107,6 +116,15 @@ public sealed class AppSettings
 
     /// <summary>Индекс активного пресета в <see cref="Presets"/>.</summary>
     public int ActivePreset { get; set; }
+
+    /// <summary>Бета-эффект «жидкое стекло».</summary>
+    public bool LiquidGlassEnabled { get; set; }
+
+    /// <summary>Сила преломления «жидкого стекла» (0.1…1).</summary>
+    public double LiquidGlassStrength { get; set; } = 0.5;
+
+    /// <summary>Ограничитель FPS преломления (захват фона за окном). Допустимые значения: Unlimited,60,45,30,20,15,10.</summary>
+    public string GlassRefractionFps { get; set; } = "Unlimited";
 
     public AppSettings Clone()
     {
@@ -138,6 +156,8 @@ public sealed class AppSettings
         SoundMaxSeconds = Math.Clamp(SoundMaxSeconds, 0.05, 1.0);
         ClickDurationMs = Math.Clamp(ClickDurationMs, 20, 5000);
         ClickZonePadding = Math.Clamp(ClickZonePadding, 0, 400);
+        LiquidGlassStrength = Math.Clamp(LiquidGlassStrength, 0.1, 1.0);
+        GlassRefractionFps = NormalizeFps(GlassRefractionFps);
         HitTestMode = HitTestMode is "Image" or "Screen" ? HitTestMode : "Window";
         ClickOnlyOnImage = HitTestMode == "Image";
         if (HasSavedPosition && (PositionX is null || PositionY is null))
@@ -157,6 +177,11 @@ public sealed class AppSettings
         }
 
         Language = Loc.Canonical(Language);
+
+        // цвета темы: пустая строка = значение по умолчанию; мусор отбрасываем
+        AccentColor = Theme.Normalize(AccentColor);
+        BaseColor = Theme.Normalize(BaseColor);
+        TextColor = Theme.Normalize(TextColor);
 
         // привязки: не больше 10 слотов, без пустых и повторяющихся токенов,
         // но позиции слотов сохраняем (пустая строка = свободный слот)
@@ -223,6 +248,37 @@ public sealed class AppSettings
         // активный пресет всегда описывает то, что сейчас на экране
         Presets[ActivePreset].IdleImagePath = IdleImagePath;
         Presets[ActivePreset].ClickImagePath = ClickImagePath;
+    }
+
+    /// <summary>Приводит ограничитель FPS преломления к допустимому значению (или к Unlimited).</summary>
+    private static string NormalizeFps(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "Unlimited";
+        }
+
+        string v = value.Trim();
+        if (v.Equals("Unlimited", StringComparison.OrdinalIgnoreCase)
+            || v.Equals("Realtime", StringComparison.OrdinalIgnoreCase)
+            || v.Equals("Off", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Unlimited";
+        }
+
+        int[] allowed = { 60, 45, 30, 20, 15, 10 };
+        if (int.TryParse(v, out int n))
+        {
+            for (int i = 0; i < allowed.Length; i++)
+            {
+                if (allowed[i] == n)
+                {
+                    return allowed[i].ToString();
+                }
+            }
+        }
+
+        return "Unlimited";
     }
 }
 

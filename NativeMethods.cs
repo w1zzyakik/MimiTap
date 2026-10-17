@@ -65,6 +65,12 @@ internal static class NativeMethods
     internal const int WM_DWMCOMPOSITIONCHANGED = 0x031E;
     internal const int WM_DPICHANGED = 0x02E0;
 
+    // SetWindowDisplayAffinity: значение WDA_EXCLUDEFROMCAPTURE прячет окно из захвата экрана
+    // (BitBlt/CopyFromScreen, Windows.Graphics.Capture). Так снимок области окна показывает
+    // то, что находится ЗА окном — это и преломляет «жидкое стекло» (см. SettingsWindow).
+    internal const uint WDA_NONE = 0x00000000;
+    internal const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+
     internal delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     internal delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
@@ -144,6 +150,23 @@ internal static class NativeMethods
             SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32());
         }
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
 }
 
 internal enum MouseHookEvent

@@ -95,6 +95,7 @@ public sealed class AppController : IDisposable
         _dragTimer.Tick += (_, _) => ApplyDrag();
         Settings = SettingsStore.Load();
         Loc.SetLanguage(Settings.Language);
+        Theme.Apply(Settings);
 
         // реестр — источник истины для автозапуска: установщик мог добавить запись
         // до первого запуска, иначе первое же сохранение настроек её бы удалило
@@ -194,6 +195,7 @@ public sealed class AppController : IDisposable
         AutoStart.Set(next.AutoStart);
 
         Loc.SetLanguage(next.Language);
+        Theme.Apply(next);
 
         _overlay?.ApplySettings(next);
         _mouseHook.Enabled = next.MouseHookEnabled;
@@ -265,6 +267,13 @@ public sealed class AppController : IDisposable
     {
         probe.Normalize();
         _overlay?.ApplySettings(probe);
+    }
+
+    /// <summary>Живой предпросмотр цветовой темы, пока пользователь выбирает цвета в настройках.</summary>
+    public void PreviewTheme(AppSettings probe)
+    {
+        probe.Normalize();
+        Theme.Apply(probe);
     }
 
     public void TestSound(AppSettings probe)

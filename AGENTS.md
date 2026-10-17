@@ -51,6 +51,7 @@ OC художницы **Typh**. Помимо приложения в репоз�
 | `OverlayWindow.xaml(.cs)` | прозрачное окно поверх всех, альфа-маска, перетаскивание, размер/позиция |
 | `SettingsWindow.xaml(.cs)` | окно настроек (закрывается в трей) |
 | `AppSettings.cs` | модель настроек + `SettingsStore`: JSON (UTF-8 BOM), распаковка встроенных ресурсов |
+| `Theme.cs` | цветовая тема: акцентный / основной / цвет текста → кисти приложения (живое перекрашивание) |
 | `SoundService.cs` | звук нажатия (обрезка до 1 с), автозапуск с Windows |
 | `NativeMethods.cs` | Win32: ex-стили окна, глобальные хуки мыши и клавиатуры, хоткеи |
 | `Inputs.cs` | привязки ввода: токены `MouseLeft` / `Key.Space`, 10 слотов, `IsDown`/`VirtualKey` |
@@ -169,7 +170,7 @@ dotnet publish .\installer\MimiTapSetup\MimiTapSetup.csproj -c Release -r win-x6
 - Идентичность: `Wizzy <211014699+w1zzyakik@users.noreply.github.com>`.
 - Ветка `main`. Сообщения коммитов — на английском, повелительное наклонение, коротко.
 - Релиз: тег `vX.Y.Z` + ассет `dist\MimiTapSetup.exe`.
-  Текущий — `v1.1.0`: <https://github.com/w1zzyakik/MimiTap/releases/tag/v1.1.0>
+  Текущий — `v1.2.0`: <https://github.com/w1zzyakik/MimiTap/releases/tag/v1.2.0>
 
 ## На заметку (не трогать без причины)
 

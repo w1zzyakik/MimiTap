@@ -13,7 +13,7 @@
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResize"
-        Background="{StaticResource BgBrush}"
+        Background="{DynamicResource BgBrush}"
         FontFamily="{StaticResource UiFont}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True">
@@ -21,13 +21,19 @@
         <shell:WindowChrome CaptionHeight="0" CornerRadius="12" GlassFrameThickness="0" ResizeBorderThickness="6" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
 
-    <Border x:Name="RootBorder" Background="{StaticResource BgBrush}" CornerRadius="12" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+    <Border x:Name="RootBorder" Background="{DynamicResource BgBrush}" CornerRadius="12" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="46" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
+
+            <!-- ── liquid glass (бета): фон-стекло под всем содержимым меню ──
+                 Шейдер берёт снятый фон ЗА окном (см. SettingsWindow.xaml.cs) и рисует его
+                 размытым, преломлённым и тонированным. Клики слой не перехватывает. -->
+            <Rectangle x:Name="GlassLayer" Grid.RowSpan="3" Fill="#01000000" IsHitTestVisible="False"
+                       Visibility="Collapsed" SnapsToDevicePixels="False" />
 
             <!-- ── шапка ───────────────────────────────── -->
             <Grid Grid.Row="0" Background="Transparent" MouseLeftButtonDown="OnTitleBarDrag">
@@ -53,13 +59,15 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0" Padding="12,14,12,12">
+                <Border Grid.Column="0" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0" Padding="12,14,12,12">
                     <StackPanel>
                         <TextBlock Style="{StaticResource Caption}" FontSize="11" Margin="11,0,0,8" Opacity="0.7">MIMITAP</TextBlock>
                         <RadioButton x:Name="NavGeneral" Style="{StaticResource NavItem}" GroupName="Nav" IsChecked="True"
                                      Tag="General" Checked="OnNavChanged" Content="{loc:Tr NavGeneral}" />
                         <RadioButton x:Name="NavAppearance" Style="{StaticResource NavItem}" GroupName="Nav"
                                      Tag="Appearance" Checked="OnNavChanged" Content="{loc:Tr NavAppearance}" />
+                        <RadioButton x:Name="NavColors" Style="{StaticResource NavItem}" GroupName="Nav"
+                                     Tag="Colors" Checked="OnNavChanged" Content="{loc:Tr NavColors}" />
                         <RadioButton x:Name="NavClicks" Style="{StaticResource NavItem}" GroupName="Nav"
                                      Tag="Clicks" Checked="OnNavChanged" Content="{loc:Tr NavClicks}" />
                         <RadioButton x:Name="NavSound" Style="{StaticResource NavItem}" GroupName="Nav"
@@ -84,8 +92,8 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <Border Grid.Column="0" Width="132" Height="132" Background="{StaticResource FieldBrush}"
-                                            BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10">
+                                    <Border Grid.Column="0" Width="132" Height="132" Background="{DynamicResource FieldBrush}"
+                                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="10">
                                         <Image x:Name="PreviewImage" Stretch="Uniform" Margin="8" />
                                     </Border>
 
@@ -188,7 +196,7 @@
                                     </Grid>
                                     <CheckBox x:Name="LockAspectBox" Content="{loc:Tr CardSizeLockAspect}" IsChecked="True" />
 
-                                    <Border Height="1" Background="{StaticResource LineBrush}" Margin="0,12,0,10" />
+                                    <Border Height="1" Background="{DynamicResource LineBrush}" Margin="0,12,0,10" />
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -249,6 +257,62 @@
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Style="{StaticResource Hint}" Text="{loc:Tr CardPositionHint}" />
                                     </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ── Liquid glass (бета) ────────── -->
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource CardTitle}" Text="{loc:Tr CardGlassTitle}" Margin="0,0,10,12" />
+                                        <Border Background="{DynamicResource AccentBrush}" CornerRadius="5" Padding="6,2" VerticalAlignment="Top" Margin="0,0,0,12">
+                                            <TextBlock Text="{loc:Tr BadgeBeta}" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" />
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,-4,0,10" Text="{loc:Tr CardGlassHint}" />
+                                    <CheckBox x:Name="LiquidGlassBox" Content="{loc:Tr CardGlassEnable}"
+                                              Checked="OnLiquidGlassChanged" Unchecked="OnLiquidGlassChanged" />
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{loc:Tr CardGlassStrength}" Width="130" VerticalAlignment="Center" />
+                                        <Slider x:Name="GlassStrengthSlider" Grid.Column="1" Minimum="0.1" Maximum="1" Value="0.5"
+                                                IsSnapToTickEnabled="True" TickFrequency="0.05" ValueChanged="OnGlassStrengthChanged" />
+                                        <TextBlock x:Name="GlassStrengthText" Grid.Column="2" Text="50%" Width="48" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{loc:Tr CardGlassRefractionFps}" Width="130" VerticalAlignment="Center" />
+                                        <ComboBox x:Name="GlassFpsBox" Grid.Column="1" HorizontalAlignment="Left" Width="190"
+                                                  SelectionChanged="OnGlassFpsChanged">
+                                            <ComboBoxItem Content="{loc:Tr GlassFpsUnlimited}" Tag="Unlimited" />
+                                            <ComboBoxItem Content="{loc:Tr GlassFps60}" Tag="60" />
+                                            <ComboBoxItem Content="{loc:Tr GlassFps45}" Tag="45" />
+                                            <ComboBoxItem Content="{loc:Tr GlassFps30}" Tag="30" />
+                                            <ComboBoxItem Content="{loc:Tr GlassFps20}" Tag="20" />
+                                            <ComboBoxItem Content="{loc:Tr GlassFps15}" Tag="15" />
+                                            <ComboBoxItem Content="{loc:Tr GlassFps10}" Tag="10" />
+                                        </ComboBox>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ── Цвета ─────────────────────── -->
+                        <StackPanel x:Name="SectionColors" Visibility="Collapsed">
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CardTitle}" Text="{loc:Tr CardColorsTitle}" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,12" Text="{loc:Tr CardColorsHint}" />
+                                    <StackPanel x:Name="ColorsList" />
+                                    <Button Content="{loc:Tr ColorReset}" HorizontalAlignment="Left" Margin="0,12,0,0" Click="ResetColors" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -326,7 +390,7 @@
 
                                     <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" Text="{loc:Tr BindClear}" />
 
-                                    <Border Height="1" Background="{StaticResource LineBrush}" Margin="0,12,0,10" />
+                                    <Border Height="1" Background="{DynamicResource LineBrush}" Margin="0,12,0,10" />
 
                                     <CheckBox x:Name="ReactAllBox" Style="{StaticResource SwitchCheckBox}" Content="{loc:Tr BindReactAll}" />
                                     <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Text="{loc:Tr BindReactAllHint}" />
@@ -432,7 +496,7 @@
                                     <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0" Text="{loc:Tr AboutText}" />
                                     <TextBlock Style="{StaticResource CardTitle}" Margin="0,16,0,4" Text="{loc:Tr AboutCharacterTitle}" />
                                     <TextBlock Style="{StaticResource Hint}" Text="{loc:Tr AboutCharacterText}" />
-                                    <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0" Foreground="{StaticResource AccentHoverBrush}" Text="{loc:Tr AboutRights}" />
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0" Foreground="{DynamicResource AccentHoverBrush}" Text="{loc:Tr AboutRights}" />
                                 </StackPanel>
                             </Border>
 
@@ -457,11 +521,11 @@
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource Caption}" Margin="0,12,0,0" Text="{loc:Tr AboutSite}" />
                                         <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,12,0,0" TextWrapping="Wrap">
-                                            <Hyperlink NavigateUri="https://w1zzyakik.github.io/MimiTap/" Foreground="{StaticResource AccentHoverBrush}"><Run Text="{loc:Tr AboutSite}" /></Hyperlink>
-                                            <Run Text="   ·   " Foreground="{StaticResource MutedBrush}" />
-                                            <Hyperlink NavigateUri="https://github.com/w1zzyakik/MimiTap" Foreground="{StaticResource AccentHoverBrush}"><Run Text="{loc:Tr AboutGithub}" /></Hyperlink>
-                                            <Run Text="   ·   " Foreground="{StaticResource MutedBrush}" />
-                                            <Hyperlink NavigateUri="https://t.me/MimiTapp" Foreground="{StaticResource AccentHoverBrush}"><Run Text="{loc:Tr AboutTelegram}" /></Hyperlink>
+                                            <Hyperlink NavigateUri="https://w1zzyakik.github.io/MimiTap/" Foreground="{DynamicResource AccentHoverBrush}"><Run Text="{loc:Tr AboutSite}" /></Hyperlink>
+                                            <Run Text="   ·   " Foreground="{DynamicResource MutedBrush}" />
+                                            <Hyperlink NavigateUri="https://github.com/w1zzyakik/MimiTap" Foreground="{DynamicResource AccentHoverBrush}"><Run Text="{loc:Tr AboutGithub}" /></Hyperlink>
+                                            <Run Text="   ·   " Foreground="{DynamicResource MutedBrush}" />
+                                            <Hyperlink NavigateUri="https://t.me/MimiTapp" Foreground="{DynamicResource AccentHoverBrush}"><Run Text="{loc:Tr AboutTelegram}" /></Hyperlink>
                                         </TextBlock>
                                     </Grid>
 
@@ -475,7 +539,7 @@
             </Grid>
 
             <!-- ── футер ─────────────────────────────────── -->
-            <Border Grid.Row="2" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,12,12" Background="#110C1A">
+            <Border Grid.Row="2" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,12,12" Background="{DynamicResource FieldBrush}">
                 <Grid Margin="18,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -490,6 +554,90 @@
                     </StackPanel>
                 </Grid>
             </Border>
+
+            <!-- ── кастомный выборщик цвета ─────────────────── -->
+            <Popup x:Name="PickerPopup" Placement="Bottom" HorizontalOffset="-30" VerticalOffset="6"
+                   StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" SnapsToDevicePixels="True"
+                   Opened="OnPickerOpened">
+                <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource LineStrongBrush}"
+                        BorderThickness="1" CornerRadius="12" Padding="14">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.55" Color="#000000" />
+                    </Border.Effect>
+                    <StackPanel Width="248">
+                        <TextBlock Style="{StaticResource Caption}" FontSize="11" Margin="0,0,0,8"
+                                   Text="{loc:Tr ColorPickTitle}" />
+
+                        <Border CornerRadius="8" ClipToBounds="True" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                            <Canvas x:Name="SvArea" Width="248" Height="150" ClipToBounds="True">
+                                <Rectangle x:Name="SvHue" Width="248" Height="150" />
+                                <Rectangle Width="248" Height="150" IsHitTestVisible="False">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#FFFFFFFF" Offset="0" />
+                                            <GradientStop Color="#00FFFFFF" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+                                <Rectangle Width="248" Height="150" IsHitTestVisible="False">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#00000000" Offset="0" />
+                                            <GradientStop Color="#FF000000" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+                                <Ellipse x:Name="SvThumb" Width="15" Height="15" Stroke="#FFFFFF" StrokeThickness="2"
+                                         IsHitTestVisible="False" />
+                            </Canvas>
+                        </Border>
+
+                        <Grid x:Name="HueArea" Height="14" Margin="0,12,0,0">
+                            <Border CornerRadius="7" ClipToBounds="True">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#FFFF0000" Offset="0" />
+                                        <GradientStop Color="#FFFFFF00" Offset="0.1667" />
+                                        <GradientStop Color="#FF00FF00" Offset="0.3333" />
+                                        <GradientStop Color="#FF00FFFF" Offset="0.5" />
+                                        <GradientStop Color="#FF0000FF" Offset="0.6667" />
+                                        <GradientStop Color="#FFFF00FF" Offset="0.8333" />
+                                        <GradientStop Color="#FFFF0000" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <Canvas x:Name="HueCanvas">
+                                <Ellipse x:Name="HueThumb" Width="15" Height="15" Stroke="#FFFFFF" StrokeThickness="2"
+                                         IsHitTestVisible="False" />
+                            </Canvas>
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="PickerPreview" Grid.Column="0" Width="30" Height="26" CornerRadius="6"
+                                    BorderBrush="{DynamicResource LineStrongBrush}" BorderThickness="1"
+                                    VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="1" Text="HEX" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       Foreground="{DynamicResource MutedBrush}" />
+                            <TextBox x:Name="PickerHex" Grid.Column="2" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <TextBlock Style="{StaticResource Caption}" FontSize="11" Margin="0,12,0,6"
+                                   Text="{loc:Tr ColorPresets}" />
+                        <WrapPanel x:Name="PickerPresets" />
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button Content="{loc:Tr ColorDefault}" Click="PickerSetDefault" Margin="0,0,8,0" />
+                            <Button Content="{loc:Tr ColorDone}" Style="{StaticResource PrimaryButton}" MinWidth="96"
+                                    Click="PickerDone" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
         </Grid>
     </Border>
 </Window>

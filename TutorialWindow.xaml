@@ -19,14 +19,14 @@
         <Rectangle x:Name="Scrim" Fill="#B3000000" />
 
         <!-- рамка вокруг картинки на шагах про Мими -->
-        <Border x:Name="Highlight" BorderBrush="{StaticResource AccentHoverBrush}" BorderThickness="2" CornerRadius="12"
+        <Border x:Name="Highlight" BorderBrush="{DynamicResource AccentHoverBrush}" BorderThickness="2" CornerRadius="12"
                 HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed" IsHitTestVisible="False">
             <Border Background="#22FFFFFF" CornerRadius="12" />
         </Border>
 
         <!-- карточка-подсказка -->
         <Border x:Name="Callout" Width="440" HorizontalAlignment="Left" VerticalAlignment="Top"
-                Background="{StaticResource CardBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
                 CornerRadius="14" Padding="20">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="34" ShadowDepth="8" Opacity="0.65" Color="#000000" />
@@ -35,12 +35,12 @@
                 <StackPanel Orientation="Horizontal">
                     <Image Source="pack://application:,,,/Assets/MimiTap.ico" Width="22" Height="22" VerticalAlignment="Center" />
                     <TextBlock x:Name="StepLabel" Margin="8,0,0,0" VerticalAlignment="Center"
-                               Foreground="{StaticResource AccentHoverBrush}" FontSize="12" FontWeight="SemiBold" />
+                               Foreground="{DynamicResource AccentHoverBrush}" FontSize="12" FontWeight="SemiBold" />
                 </StackPanel>
 
                 <TextBlock x:Name="CalloutTitle" FontSize="17" FontWeight="SemiBold" Margin="0,10,0,0" TextWrapping="Wrap" />
                 <TextBlock x:Name="CalloutText" TextWrapping="Wrap" Margin="0,8,0,0"
-                           Foreground="{StaticResource MutedBrush}" FontSize="13" LineHeight="20" />
+                           Foreground="{DynamicResource MutedBrush}" FontSize="13" LineHeight="20" />
 
                 <Grid Margin="0,18,0,0">
                     <Grid.ColumnDefinitions>

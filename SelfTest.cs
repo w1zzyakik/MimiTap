@@ -75,6 +75,7 @@ public static class SelfTest
         CheckSound(controller, report);
         CheckBindings(controller, report);
         CheckPresets(controller, report);
+        CheckTheme(controller, report);
 
         report.AppendLine($"autostart registered: {AutoStart.IsEnabled()}");
         report.AppendLine($"mouse hook enabled: {settings.MouseHookEnabled}");
@@ -157,6 +158,67 @@ public static class SelfTest
             controller.PreviewSettings(original);
         }
     }
+
+    private static void CheckTheme(AppController controller, StringBuilder report)
+    {
+        var original = controller.Settings.Clone();
+
+        try
+        {
+            report.AppendLine(
+                $"theme colors: accent='{original.AccentColor}' base='{original.BaseColor}' text='{original.TextColor}'");
+
+            // мусор в цветах отбрасывается, короткая запись «#0af» разворачивается
+            var probe = new AppSettings { AccentColor = "не цвет", BaseColor = "#0af", TextColor = "#123456" };
+            probe.Normalize();
+            report.AppendLine(
+                $"theme normalize: accent='{probe.AccentColor}' base='{probe.BaseColor}' text='{probe.TextColor}'");
+
+            // как выглядит уже созданное окно настроек до смены темы (RootBorder.Background = DynamicResource BgBrush)
+            var root = controller.SettingsWindow.FindName("RootBorder") as System.Windows.Controls.Border;
+            string before = DescribeBrush(root?.Background);
+
+            var custom = controller.Settings.Clone();
+            custom.AccentColor = "#00C2A8";
+            custom.BaseColor = "#0A1418";
+            custom.TextColor = "#E6F5F2";
+            controller.PreviewTheme(custom);
+            report.AppendLine($"theme applied: accent={ReadBrush("AccentBrush")} bg={ReadBrush("BgBrush")} text={ReadBrush("TextBrush")}");
+            report.AppendLine($"theme frozen: accent={BrushFrozen("AccentBrush")} bg={BrushFrozen("BgBrush")} text={BrushFrozen("TextBrush")}");
+
+            // главная проверка: открытое окно перекрашивается без перезапуска
+            if (root is not null)
+            {
+                root.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                string after = DescribeBrush(root.Background);
+                report.AppendLine($"theme live: rootBg {before} -> {after} changed={before != after}");
+            }
+
+            // выборщик цвета: открывается и применяет выбранный цвет
+            report.AppendLine($"color picker: {controller.SettingsWindow.SelfTestColorPicker()}");
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("theme FAILED: " + ex.Message);
+        }
+        finally
+        {
+            controller.PreviewTheme(original);
+        }
+    }
+
+    private static string DescribeBrush(System.Windows.Media.Brush? brush) =>
+        brush is System.Windows.Media.SolidColorBrush solid ? solid.Color.ToString() : brush?.ToString() ?? "-";
+
+    private static string ReadBrush(string key) =>
+        Application.Current?.Resources[key] is System.Windows.Media.SolidColorBrush brush
+            ? brush.Color.ToString()
+            : "-";
+
+    private static string BrushFrozen(string key) =>
+        Application.Current?.Resources[key] is System.Windows.Media.SolidColorBrush brush
+            ? brush.IsFrozen.ToString()
+            : "-";
 
     private static void CheckOverlay(AppController controller, StringBuilder report)
     {
@@ -328,6 +390,12 @@ public static class SelfTest
             window.LoadFrom(controller.Settings);
             window.Show();
             report.AppendLine($"settings window: shown={window.IsVisible} size={window.Width:0}x{window.Height:0}");
+
+            // бета: «жидкое стекло» — шейдер и слой эффекта должны подняться на показанном окне
+            PumpDispatcher(window);
+            report.AppendLine($"liquid glass: {window.SelfTestGlass()}");
+            PumpDispatcher(window);
+
             window.Hide();
             report.AppendLine($"settings window hide-to-tray: hidden={!window.IsVisible} app still running=true");
         }
